@@ -1,0 +1,89 @@
+name: Publish to NuGet
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (without v prefix, e.g., 0.1.0)'
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      version_tag: ${{ steps.get_version.outputs.version_tag }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Require reviewed default-branch ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Manual releases must run from main."
+            exit 1
+          fi
+          git merge-base --is-ancestor HEAD origin/main
+      - name: Determine version
+        id: get_version
+        shell: bash
+        env:
+          WORKFLOW_DISPATCH_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="$WORKFLOW_DISPATCH_VERSION"
+            VERSION_TAG="v${VERSION}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            VERSION_TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)(-((0|[1-9][0-9]*)|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)([.]((0|[1-9][0-9]*)|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?$ ]]; then
+            echo "::error::Version must be a NuGet package version without build metadata (for example 1.2.3 or 1.2.3-preview.1)."
+            exit 1
+          fi
+          printf 'version=%s\n' "$VERSION" >>"$GITHUB_OUTPUT"
+          printf 'version_tag=%s\n' "$VERSION_TAG" >>"$GITHUB_OUTPUT"
+          echo "Publishing version: $VERSION"
+          echo "Publishing tag: $VERSION_TAG"
+
+  release:
+    name: Build, Pack & Publish
+    needs: prepare
+    # Reusable workflow permissions are the maximum allowed set; release.yml narrows permissions per internal job.
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      security-events: write
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/release.yml@main
+    with:
+      dotnet-version: '10.0.x'
+      configuration: 'Release'
+      runs-on: 'ubuntu-latest'
+      project-path: './HoneyDrunk.Identity.slnx'
+      enable-nuget-publish: true
+      nuget-source: 'https://api.nuget.org/v3/index.json'
+      package-version: ${{ needs.prepare.outputs.version }}
+      create-github-release: true
+      github-release-prerelease: ${{ contains(needs.prepare.outputs.version, '-') }}
+      github-release-tag: ${{ needs.prepare.outputs.version_tag }}
+      release-product-name: HoneyDrunk.Identity
+      release-product-description: 'Stable user identity contracts and HTTP client for the shared HoneyDrunk Identity service.'
+      release-nuget-packages: |
+        HoneyDrunk.Identity.Abstractions
+        HoneyDrunk.Identity.Client
+      release-docs-url: 'https://github.com/HoneyDrunkStudios/HoneyDrunk.Identity#readme'
+      actions-ref: 'main'
+    secrets:
+      nuget-api-key: ${{ secrets.NUGET_API_KEY }}

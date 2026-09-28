@@ -1,0 +1,84 @@
+name: PR
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-core:
+    name: PR Core
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      checks: write
+      issues: write
+      pull-requests: write
+      security-events: write  # CodeQL SARIF upload
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/pr-core.yml@main
+    with:
+      dotnet-version: '10.0.x'
+      configuration: 'Release'
+      runs-on: 'ubuntu-latest'
+      working-directory: '.'
+      project-path: './HoneyDrunk.Identity.slnx'
+      enable-secret-scan: true
+      enable-accessibility-check: false
+      patch-coverage-threshold: 75
+      absolute-coverage-floor: 70
+      post-pr-summary: true
+      actions-ref: 'main'
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  sonarcloud:
+    name: SonarQube Cloud
+    # Runs on:
+    #   - pull_request (same-repo, after pr-core succeeds) for PR-time analysis
+    #   - push to main (standalone) for main-branch analysis that populates the
+    #     SonarCloud Overview dashboard and leak-period baseline.
+    # `always()` is required because pr-core is skipped on push events; without
+    # it, GitHub Actions skips downstream jobs whose declared `needs:` was skipped.
+    if: |
+      always() && (
+        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.pr-core.result == 'success') ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      )
+    needs: pr-core
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud.yml@main
+    with:
+      dotnet-version: '10.0.x'
+      runs-on: 'ubuntu-latest'
+      working-directory: '.'
+      project-path: './HoneyDrunk.Identity.slnx'
+      sonar-organization: 'honeydrunkstudios'
+      sonar-project-key: 'honeydrunkstudios_HoneyDrunk.Identity'
+      coverage-artifact-name: 'coverage-reports-ubuntu-latest'
+    secrets:
+      sonar-token: ${{ secrets.SONAR_TOKEN }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  coverage-baseline-ratchet:
+    name: Coverage Baseline Ratchet
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+      checks: write
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/coverage-baseline-ratchet.yml@main
+    with:
+      dotnet-version: '10.0.x'
+      configuration: 'Release'
+      runs-on: 'ubuntu-latest'
+      working-directory: '.'
+      project-path: './HoneyDrunk.Identity.slnx'
+      actions-ref: 'main'
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}

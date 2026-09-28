@@ -1,0 +1,39 @@
+name: Weekly Dependencies
+
+on:
+  schedule:
+    - cron: '45 3 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  preflight:
+    name: Workflow preflight
+    permissions:
+      contents: read
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-solution-preflight.yml@main
+    with:
+      runs-on: 'ubuntu-latest'
+      project-path: './HoneyDrunk.Identity.slnx'
+      missing-message: 'No ./HoneyDrunk.Identity.slnx found yet; skipping scheduled .NET dependency scan until the repo scaffold lands.'
+
+  weekly-deps:
+    name: Weekly Dependencies
+    needs: preflight
+    if: needs.preflight.outputs['project-exists'] == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/nightly-deps.yml@main
+    with:
+      dotnet-version: '10.0.x'
+      runs-on: 'ubuntu-latest'
+      working-directory: '.'
+      project-path: './HoneyDrunk.Identity.slnx'
+      check-dotnet-deps: true
+      create-update-prs: true
+      actions-ref: 'main'
+    secrets:
+      github-token: ${{ secrets.HIVE_FIELD_MIRROR_TOKEN }}
