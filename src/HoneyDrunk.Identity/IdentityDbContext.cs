@@ -22,24 +22,24 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     public DbSet<AuditRecord> Audit => Set<AuditRecord>();
 
     /// <inheritdoc />
-    protected override void ApplyConfigurations(ModelBuilder b)
+    protected override void ApplyConfigurations(ModelBuilder modelBuilder)
     {
-        b.Entity<UserRow>().HasKey(x => x.UserId);
-        b.Entity<UserRow>().Property(x => x.UserId).HasMaxLength(30).IsUnicode(false);
-        b.Entity<UserRow>().Property(x => x.State).HasMaxLength(20);
-        b.Entity<SubjectRow>().HasKey(x => x.SubjectKey);
-        b.Entity<SubjectRow>().Property(x => x.SubjectKey).HasMaxLength(64).IsUnicode(false);
-        b.Entity<SubjectRow>().HasOne<UserRow>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
-        b.Entity<IdentityAuditRow>().HasKey(x => x.Id);
-        b.Entity<IdentityAuditRow>().ToTable("Audit");
-        b.Entity<IdentityAuditRow>().Property(x => x.EventName).HasMaxLength(100);
-        b.Entity<IdentityAuditRow>().Property(x => x.Outcome).HasMaxLength(40);
-        b.Entity<IdentityAuditRow>().Property(x => x.ActorHash).HasMaxLength(64).IsUnicode(false);
-        b.Entity<AuditRecord>().ToTable("AuditRecords");
-        b.Entity<AuditRecord>().HasKey(x => x.Id);
-        b.Entity<AuditRecord>().Property(x => x.Id).HasMaxLength(32).IsUnicode(false);
-        b.Entity<AuditRecord>().Property(x => x.EventName).HasMaxLength(200);
-        b.Entity<AuditRecord>().Property(x => x.TenantId).HasMaxLength(100);
-        b.Entity<AuditRecord>().HasIndex(x => new { x.TenantId, x.OccurredAt });
+        modelBuilder.Entity<UserRow>().HasKey(x => x.UserId);
+        modelBuilder.Entity<UserRow>().Property(x => x.UserId).HasMaxLength(30).IsUnicode(false);
+        modelBuilder.Entity<UserRow>().Property(x => x.State).HasMaxLength(20);
+        modelBuilder.Entity<SubjectRow>().HasKey(x => x.SubjectKey);
+        modelBuilder.Entity<SubjectRow>().Property(x => x.SubjectKey).HasMaxLength(64).IsUnicode(false);
+        modelBuilder.Entity<SubjectRow>().HasOne<UserRow>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<IdentityAuditRow>().HasKey(x => x.Id);
+        modelBuilder.Entity<IdentityAuditRow>().ToTable("Audit");
+        modelBuilder.Entity<IdentityAuditRow>().Property(x => x.EventName).HasMaxLength(100);
+        modelBuilder.Entity<IdentityAuditRow>().Property(x => x.Outcome).HasMaxLength(40);
+        modelBuilder.Entity<IdentityAuditRow>().Property(x => x.ActorHash).HasMaxLength(64).IsUnicode(false);
+        modelBuilder.Entity<AuditRecord>().ToTable("AuditRecords");
+        modelBuilder.Entity<AuditRecord>().HasKey(x => x.Id);
+        modelBuilder.Entity<AuditRecord>().Property(x => x.Id).HasMaxLength(32).IsUnicode(false);
+        modelBuilder.Entity<AuditRecord>().Property(x => x.EventName).HasMaxLength(200);
+        modelBuilder.Entity<AuditRecord>().Property(x => x.TenantId).HasMaxLength(100);
+        modelBuilder.Entity<AuditRecord>().HasIndex(x => new { x.TenantId, x.OccurredAt });
     }
 }

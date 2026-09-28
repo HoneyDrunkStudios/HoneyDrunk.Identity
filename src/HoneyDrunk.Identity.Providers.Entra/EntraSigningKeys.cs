@@ -10,7 +10,6 @@ namespace HoneyDrunk.Identity.Providers.Entra;
 public sealed class EntraSigningKeys : ISigningKeyProvider
 {
     private readonly ConfigurationManager<OpenIdConnectConfiguration>? discovery;
-    private readonly string authority;
     private readonly string audience;
     private readonly string issuer;
 
@@ -18,7 +17,7 @@ public sealed class EntraSigningKeys : ISigningKeyProvider
     /// <param name="configuration">Authority and audience supplied by the host.</param>
     public EntraSigningKeys(IConfiguration configuration)
     {
-        authority = configuration["Entra:Authority"]?.TrimEnd('/') ?? string.Empty;
+        var authority = configuration["Entra:Authority"]?.TrimEnd('/') ?? string.Empty;
         audience = configuration["Entra:Audience"] ?? string.Empty;
         issuer = configuration["Entra:Issuer"] ?? string.Empty;
         if (authority.Length > 0)

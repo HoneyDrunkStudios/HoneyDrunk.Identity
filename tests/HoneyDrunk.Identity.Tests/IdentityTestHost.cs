@@ -1,4 +1,5 @@
 using HoneyDrunk.Auth.Secrets;
+using HoneyDrunk.Identity.Api;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;

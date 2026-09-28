@@ -81,7 +81,4 @@ app.MapGet("/client-configuration", () =>
         ? Results.Problem("Sign-in configuration is not ready.", statusCode: 503)
         : Results.Ok(new { authority, clientId, scope, signInChoices = new[] { "Apple", "Google", "Microsoft" } });
 });
-app.Run();
-
-/// <summary>Assembly marker for integration hosting.</summary>
-public partial class IdentityApiProgram;
+await app.RunAsync();
