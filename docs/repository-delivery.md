@@ -19,7 +19,7 @@ Earlier review corrected scoped Auth lifetimes, canonical audit atomicity, forge
 
 ## Validation
 
-Release builds use shared Standards with warnings treated as errors. SQL boundary tests deploy the actual DACPAC to isolated databases. A separate package consumer restores fresh and locked into a new cache and builds without source references. Workflow syntax is checked with actionlint. Native Visual Studio SQL and CLI DACPAC models were compared with no schema differences.
+Local validation on September 28 passed 33 full-suite tests plus the additional link/unlink scope regression (34 cases). Release builds use shared Standards with warnings treated as errors. SQL boundary tests deploy the actual DACPAC to isolated databases. A separate package consumer restores fresh and locked into a new cache and builds without source references. Workflow syntax is checked with actionlint. Native Visual Studio SQL and CLI DACPAC models were compared with no schema differences.
 
 GitHub results are specific to the PR commit and must be read from its checks; previous passing runs do not prove the current revision. The required SonarCloud external check previously needed organization-owner app access/project binding. Keep the required gate intact and verify current status before merging.
 
