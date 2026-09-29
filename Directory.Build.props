@@ -16,8 +16,5 @@
   <ItemGroup>
     <PackageReference Include="HoneyDrunk.Standards" Version="0.3.0" PrivateAssets="all" />
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="/" />
-    <SonarQubeSetting Include="sonar.coverage.exclusions">
-      <Value>**/Migrations/*.cs</Value>
-    </SonarQubeSetting>
   </ItemGroup>
 </Project>

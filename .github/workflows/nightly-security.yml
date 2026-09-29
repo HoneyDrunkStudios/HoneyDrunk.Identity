@@ -15,8 +15,8 @@ jobs:
     uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-solution-preflight.yml@main
     with:
       runs-on: 'ubuntu-latest'
-      project-path: './HoneyDrunk.Identity.slnx'
-      missing-message: 'No ./HoneyDrunk.Identity.slnx found yet; skipping scheduled .NET security scan until the repo scaffold lands.'
+      project-path: './HoneyDrunk.Identity/HoneyDrunk.Identity.slnx'
+      missing-message: 'No ./HoneyDrunk.Identity/HoneyDrunk.Identity.slnx found yet; skipping scheduled .NET security scan until the repo scaffold lands.'
 
   nightly-security:
     name: Nightly Security
@@ -31,7 +31,7 @@ jobs:
       dotnet-version: '10.0.x'
       runs-on: 'ubuntu-latest'
       working-directory: '.'
-      project-path: './HoneyDrunk.Identity.slnx'
+      project-path: './HoneyDrunk.Identity/HoneyDrunk.Identity.slnx'
       enable-sast: true
       enable-iac-scan: true
       enable-secret-scan: true

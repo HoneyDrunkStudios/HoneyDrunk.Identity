@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\HoneyDrunk.Identity.Abstractions\HoneyDrunk.Identity.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HoneyDrunk.Audit.Abstractions" Version="0.2.1" />
+    <PackageReference Include="HoneyDrunk.Audit.Data" Version="0.2.1" />
+    <PackageReference Include="HoneyDrunk.Data.EntityFramework" Version="0.7.1" />
+    <PackageReference Include="HoneyDrunk.Data.Outbox" Version="0.7.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
+    <PackageReference Include="Ulid" Version="1.4.1" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

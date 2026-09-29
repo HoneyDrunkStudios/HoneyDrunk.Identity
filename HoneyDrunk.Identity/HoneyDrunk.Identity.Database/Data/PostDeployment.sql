@@ -1,0 +1,3 @@
+-- Runs after every publish. Include only repeatable, reviewed seed scripts here.
+-- Example: :r .\Seed\ReferenceData.sql
+-- No database-owned seed data is currently required.

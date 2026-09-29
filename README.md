@@ -1,47 +1,47 @@
 # HoneyDrunk.Identity
 
-Shared user identity service for Pocket Quests and future consumers. September 28, 2026: shared service foundation under review in the public [Identity repository](https://github.com/HoneyDrunkStudios/HoneyDrunk.Identity). No package or service has been released, and providers are not enrolled. This is a narrow foundation, not completion of every proposed Identity ADR contract.
+Shared account API for Pocket Quests and future HoneyDrunk applications. The service owns its SQL database; multiple application databases can share one SQL Server instance. This implementation is under review, not a production release.
 
-## Implemented boundary
+## Solution and responsibilities
 
-`GET /users/me` accepts an access token validated by HoneyDrunk.Auth against the configured issuer, audience, lifetime and Entra OIDC public signing keys. It resolves the verified issuer/subject pair under a SQL transaction lock to a stable `usr_` identifier. Issuers remain isolated; email matching does not link accounts. Inactive directory rows are rejected. The service stores no user passwords, provider client secrets or raw tokens.
+Open `HoneyDrunk.Identity/HoneyDrunk.Identity.slnx` in Visual Studio. Projects sit beside the solution and use responsibility folders internally. Persistence types have an `Entity` suffix and separate Fluent API configurations; public account/domain contracts do not. See [code organization](docs/code-organization.md).
 
-`HoneyDrunk.Identity.Abstractions` defines the implemented subject/account/directory seam. `HoneyDrunk.Identity.Client` calls the HTTP boundary and contains no Entra SDK. Both have local candidate version `0.1.0-alpha.3`; run `scripts/Pack-Client.ps1 -OutputDirectory PATH` to produce package files. Nothing is published by this script. A reviewed immutable release to NuGet.org is a prerequisite for ordinary remote consumer restores. Only Client and Abstractions are packable; runtime, provider and API projects remain service implementation.
+- API and Entra provider: validate issuer, audience, signature, lifetime and the exact delegated `access_as_user` scope before resolving a stable account. Link/unlink proofs use the same scope requirement. User identity is based on issuer/subject, never an email match.
+- Runtime: directory resolution, account linking, recent-proof deletion/recovery, durable lifecycle intent delivery and consumer acknowledgments. Deletion fails closed without configured private transport and consumers. Provider and consumer failures retain account access restrictions.
+- SQL Server database project: table definitions, data scripts and DACPAC publish profiles. EF Core handles queries and saves, with no EF migration history required for schema deployment.
+- Client and Abstractions: independent NuGet candidates, version **0.1.0-alpha.4**. These are not published packages. Runtime/API/provider projects are not packable.
 
-The runtime uses HoneyDrunk.Data.EntityFramework and SQL Server. Kernel provides request/operation context and scoped telemetry. Auth is scoped to match its dependencies. Audit.Data preserves the full canonical envelope through the Identity audit unit of work. User creation appends canonical audit inside its directory transaction. Legacy prototype audit rows are preserved, and append does not purge records. Pulse exports to Aspire's local OTLP sink. Standards analyzers run with warnings as errors.
+Kernel supplies trusted request context; Auth validates credentials; Data and Audit.Data persist account changes and canonical audit records transactionally; Pulse exports telemetry. Public headers cannot assign internal ownership. Erasure has a scoped audit-data exception and recovery markers; production backup/retention enforcement still requires operational validation.
 
-No public audit query is exposed. Audit retention and operational-log retention are separate decisions; no production retention enforcement or tamper-evidence guarantee is claimed. Shared Auth logs an audit-write failure without changing its authentication decision; that shared failure policy needs operational monitoring before production.
+## Local development
 
-## Local use
+Requires .NET SDK 10.0.401 and SQL Server LocalDB. Visual Studio's SQL project uses SSDT and its .NET Framework 4.8 build tooling; application projects target .NET 10. CLI/CI builds use Microsoft.Build.Sql. See [database deployment](docs/database-project.md).
 
-Requires .NET SDK 10.0.401 and SQL Server LocalDB for the Windows development host. Tests automatically use MSSQLLocalDB on Windows and an isolated SQL Server container on Linux (Docker required). They never skip when SQL is unavailable. Create/start the dedicated `PocketQuests` LocalDB instance once, then from this checkout:
+From the repository root:
 
 ```powershell
 dotnet tool restore
-dotnet restore --locked-mode
-dotnet ef database update --project src/HoneyDrunk.Identity
-dotnet test
-dotnet run --project src/HoneyDrunk.Identity.Api
+dotnet restore HoneyDrunk.Identity/HoneyDrunk.Identity.slnx --locked-mode
+# Create the dedicated development instance once, then start it.
+sqllocaldb create PocketQuests
+sqllocaldb start PocketQuests
+./scripts/Deploy-LocalDatabase.ps1
+# Review the generated deployment SQL first.
+./scripts/Deploy-LocalDatabase.ps1 -Action Publish
+dotnet test HoneyDrunk.Identity/HoneyDrunk.Identity.Tests --configuration Release
+dotnet run --project HoneyDrunk.Identity/HoneyDrunk.Identity.Api
 ```
 
-The development database is `HoneyDrunkIdentity` on `(localdb)\PocketQuests`. Port 5218 serves the API. `/health` checks SQL connectivity; it does not assert completed provider enrollment. `/client-configuration` returns 503 until public Entra configuration is supplied. Unconfigured token validation fails closed. Development signing keys exist only in test hosts, never in the runnable API.
+The development database is `HoneyDrunkIdentity` on `(localdb)\PocketQuests`. Tests use uniquely named databases on MSSQLLocalDB on Windows or an isolated SQL Server container on Linux. Missing SQL fails the tests instead of skipping them. Pocket Quests' AppHost can start this service from an explicitly configured checkout.
 
-Pocket Quests' Aspire AppHost launches this service from an explicit configured source path, or connects to a separately deployed HTTPS service. The product API consumes the versioned Client package by default. Source checkouts can live in unrelated directories.
+## Sign-in setup
 
-## Public Entra configuration
+Configure `Entra:Authority`, `Entra:Issuer`, `Entra:Audience`, `Entra:MobileClientId` and `Entra:ApiScope` in local configuration or user secrets. The scope ends in `/access_as_user`. Verify issuer/audience against trusted tenant discovery and app registration. Graph uses a local certificate in Development or managed identity in deployment; no private key or client secret belongs in source or the Expo app. Follow [local Entra sign-in](docs/local-entra-sign-in.md).
 
-The host needs `Entra:Authority` (the exact tenant-specific HTTPS OIDC authority), `Entra:Issuer` (the exact issuer from trusted tenant discovery), `Entra:Audience` (Identity API audience), `Entra:MobileClientId` (public native client) and `Entra:ApiScope` (delegated access scope). Verify the configured issuer against the actual tenant's discovery document and minted token before enabling users. Discovery refresh is throttled; key-rotation recovery still needs a real-provider test.
+An external customer tenant and local registration were configured during development. Those settings and credentials are not bundled in this repository. The hosted user flow determines available sign-in methods; the API does not advertise unconfigured social providers. `/client-configuration` returns 503 if public configuration is missing. `/health` checks SQL connectivity only.
 
-Native login uses browser-delegated authorization code + PKCE. The mobile app gets public settings from Identity and calls standard OIDC endpoints; it does not hold a client secret. The current foundation is not yet a complete Identity-owned session broker, refresh-token lifecycle, recovery/linking system, profile API or erasure fan-out.
+## Review and release
 
-## Human setup tracking
+See [repository delivery](docs/repository-delivery.md) for review evidence and remaining gates. Native-device authentication, provider key rotation, production transport/erasure and backup recovery still need environment-specific verification. Local account creation was exercised, but the full authenticated Pocket Quests flow after the schema upgrade is not yet confirmed.
 
-Pending and completed human dependencies are tracked only in Architecture's canonical `initiatives/projects/manual-actions.md` ledger. The Pocket Quests handoff links to the current working-copy file. The ledger is not yet published in Architecture main; once published, its permanent location is [cross-project manual actions](https://github.com/HoneyDrunkStudios/HoneyDrunk.Architecture/blob/main/initiatives/projects/manual-actions.md).
-
-There is no assumed evening deadline and no reminder schedule. Agents continue independent implementation and configuration; the ledger distinguishes personal account access, billing/legal consent and physical feedback from agent-owned work. It records completed actions to prevent repeated requests. No tenant or provider enrollment has occurred.
-
-Authoritative setup references: [Entra customer authentication methods](https://learn.microsoft.com/en-us/entra/external-id/customers/concept-authentication-methods-customers), [personal Microsoft federation](https://learn.microsoft.com/en-us/entra/external-id/customers/how-to-microsoft-accounts-federation-customers), [Google federation](https://learn.microsoft.com/en-us/entra/external-id/customers/how-to-google-federation-customers), [Apple federation](https://learn.microsoft.com/en-us/entra/external-id/customers/how-to-apple-federation-customers).
-
-## Release prerequisites
-
-Formally reconcile proposed ADR-0060/ADR-0078 and node/catalog registration; finish supported lifecycle contracts rather than publishing placeholder seams; review/package immutable Client and Abstractions artifacts; consume them in Pocket Quests with locked restore; release the service independently with controlled schema rollout; verify live sign-in and account ownership before calling the user flow ready. Repository creation and the implementation PR are authorized. Merge, release tags, NuGet publication and cloud deployment remain separate actions. See [repository delivery](docs/repository-delivery.md) for CI, protection and release evidence.
+Run `scripts/Pack-Client.ps1 -OutputDirectory PATH` and `scripts/Test-Packages.ps1 -PackageDirectory PATH` to validate isolated package consumption. No script publishes packages. PR publication does not authorize merge, NuGet release or cloud deployment.

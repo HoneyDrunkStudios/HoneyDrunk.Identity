@@ -7,7 +7,6 @@
           <Format>cobertura,opencover</Format>
           <Include>[HoneyDrunk.Identity*]*</Include>
           <Exclude>[*.Tests]*</Exclude>
-          <ExcludeByFile>**/Migrations/*.cs</ExcludeByFile>
         </Configuration>
       </DataCollector>
     </DataCollectors>

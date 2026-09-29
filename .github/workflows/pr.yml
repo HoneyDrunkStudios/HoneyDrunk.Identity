@@ -25,7 +25,7 @@ jobs:
       configuration: 'Release'
       runs-on: 'ubuntu-latest'
       working-directory: '.'
-      project-path: './HoneyDrunk.Identity.slnx'
+      project-path: './HoneyDrunk.Identity/HoneyDrunk.Identity.slnx'
       enable-secret-scan: true
       enable-accessibility-check: false
       patch-coverage-threshold: 75
@@ -58,7 +58,7 @@ jobs:
       dotnet-version: '10.0.x'
       runs-on: 'ubuntu-latest'
       working-directory: '.'
-      project-path: './HoneyDrunk.Identity.slnx'
+      project-path: './HoneyDrunk.Identity/HoneyDrunk.Identity.slnx'
       sonar-organization: 'honeydrunkstudios'
       sonar-project-key: 'honeydrunkstudios_HoneyDrunk.Identity'
       coverage-artifact-name: 'coverage-reports-ubuntu-latest'
@@ -78,7 +78,7 @@ jobs:
       configuration: 'Release'
       runs-on: 'ubuntu-latest'
       working-directory: '.'
-      project-path: './HoneyDrunk.Identity.slnx'
+      project-path: './HoneyDrunk.Identity/HoneyDrunk.Identity.slnx'
       actions-ref: 'main'
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
