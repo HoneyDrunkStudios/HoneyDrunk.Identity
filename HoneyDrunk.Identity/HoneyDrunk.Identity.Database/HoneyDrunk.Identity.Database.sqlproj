@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Visual Studio loads the original SSDT project system. Only dotnet/CI uses the SQL SDK. -->
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <EnableDefaultSqlItems>false</EnableDefaultSqlItems>
+    <BaseIntermediateOutputPath Condition="'$(MSBuildRuntimeType)' == 'Core'">obj\dotnet\</BaseIntermediateOutputPath>
+    <BaseIntermediateOutputPath Condition="'$(MSBuildRuntimeType)' != 'Core'">obj\ssdt\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+  <Import Project="Sdk.props" Sdk="Microsoft.Build.Sql" Version="2.3.0" Condition="'$(MSBuildRuntimeType)' == 'Core'" />
+  <PropertyGroup>
+    <Name>HoneyDrunk.Identity.Database</Name>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>4.1</ProjectVersion>
+    <ProjectGuid>{6f2d6a6e-152c-46d2-a915-5f6baf4ac447}</ProjectGuid>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql150DatabaseSchemaProvider</DSP>
+    <OutputType>Database</OutputType>
+    <RootNamespace>HoneyDrunk.Identity.Database</RootNamespace>
+    <AssemblyName>HoneyDrunk.Identity.Database</AssemblyName>
+    <ModelCollation>1033, CI</ModelCollation>
+    <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
+    <DeployToDatabase>True</DeployToDatabase>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <SqlServerVerification>False</SqlServerVerification>
+    <IncludeCompositeObjects>True</IncludeCompositeObjects>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(MSBuildRuntimeType)' != 'Core'">
+    <!-- Framework is used by SSDT build tools, never by the deployed SQL database or APIs. -->
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetLanguage>CS</TargetLanguage>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">18.0</VisualStudioVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="Tables" />
+    <Folder Include="Schemas" />
+    <Folder Include="Data" />
+    <Folder Include="Data\Seed" />
+    <Folder Include="Data\AdHoc" />
+    <Folder Include="PublishProfiles" />
+    <Build Include="Schemas\outbox.sql" />
+    <Build Include="Tables\dbo\Audit.sql" />
+    <Build Include="Tables\dbo\AuditRecords.sql" />
+    <Build Include="Tables\dbo\Deliveries.sql" />
+    <Build Include="Tables\dbo\Erasures.sql" />
+    <Build Include="Tables\dbo\Subjects.sql" />
+    <Build Include="Tables\dbo\Users.sql" />
+    <Build Include="Tables\outbox\OutboxMessages.sql" />
+    <None Include="Data\AdHoc\README.md" />
+    <PostDeploy Include="Data\PostDeployment.sql" />
+    <None Include="Data\Seed\README.md" />
+    <None Include="PublishProfiles\Local.publish.xml" />
+  </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.Build.Sql" Version="2.3.0" Condition="'$(MSBuildRuntimeType)' == 'Core'" />
+  <Import Project="$(SQLDBExtensionsRefPath)\Microsoft.Data.Tools.Schema.SqlTasks.targets" Condition="'$(MSBuildRuntimeType)' != 'Core' AND '$(SQLDBExtensionsRefPath)' != ''" />
+  <Import Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" Condition="'$(MSBuildRuntimeType)' != 'Core' AND '$(SQLDBExtensionsRefPath)' == ''" />
+</Project>
