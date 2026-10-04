@@ -14,7 +14,7 @@ internal static class DatabaseSchema
         if (!connection.InitialCatalog.StartsWith("Identity_Tests_", StringComparison.Ordinal))
             throw new InvalidOperationException("DACPAC test deployment requires an isolated test database.");
 
-        using var package = DacPackage.Load(Path.Combine(AppContext.BaseDirectory, "HoneyDrunk.Identity.Database.dacpac"));
+        using var package = DacPackage.Load(Path.Join(AppContext.BaseDirectory, "HoneyDrunk.Identity.Database.dacpac"));
         var service = new DacServices(connection.ConnectionString);
         service.Deploy(package, connection.InitialCatalog, upgradeExisting: true, options: new DacDeployOptions
         {
@@ -23,5 +23,8 @@ internal static class DatabaseSchema
             ScriptDatabaseOptions = false,
             IncludeTransactionalScripts = true,
         });
+
+        // A pre-deployment readiness probe can leave a cached login failure for this database.
+        SqlConnection.ClearPool((SqlConnection)database.GetDbConnection());
     });
 }
