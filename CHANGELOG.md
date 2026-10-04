@@ -4,6 +4,7 @@
 
 - Add account lifecycle contracts, feature namespaces and SQL Server database project deployment.
 - Require delegated API scope and support certificate-based local Entra integration.
+- Simplify lifecycle cleanup and delivery filtering, fix the test DACPAC filename, and verify caller disposal of Graph test responses.
 
 
 ## [0.1.0-alpha.3] - Unreleased candidate

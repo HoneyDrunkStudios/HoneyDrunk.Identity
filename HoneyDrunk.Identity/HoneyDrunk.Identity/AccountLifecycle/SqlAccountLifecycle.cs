@@ -144,14 +144,11 @@ public sealed partial class SqlAccountLifecycle(IdentityDbContext db, TimeProvid
         user.NextAttemptAt = null;
         user.FailureCode = null;
         var deliveries = await db.Deliveries.Where(d => d.UserId == user.UserId).ToListAsync(token);
-        foreach (var consumer in options.Value.Consumers)
+        foreach (var consumer in options.Value.Consumers.Where(consumer => deliveries.All(d => d.Consumer != consumer.Key)))
         {
-            if (deliveries.All(d => d.Consumer != consumer.Key))
-            {
-                var added = new LifecycleDeliveryEntity { UserId = user.UserId, Consumer = consumer.Key, Destination = consumer.Value };
-                deliveries.Add(added);
-                db.Deliveries.Add(added);
-            }
+            var added = new LifecycleDeliveryEntity { UserId = user.UserId, Consumer = consumer.Key, Destination = consumer.Value };
+            deliveries.Add(added);
+            db.Deliveries.Add(added);
         }
 
         foreach (var delivery in deliveries)

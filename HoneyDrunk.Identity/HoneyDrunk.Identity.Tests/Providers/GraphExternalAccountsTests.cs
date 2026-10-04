@@ -23,6 +23,7 @@ public sealed class GraphExternalAccountsTests
         await Assert.ThrowsAsync<HttpRequestException>(() => provider.Erase(Subject, default));
         Assert.Equal(new[] { "DELETE /v1.0/users/" + Subject.ObjectId, "DELETE /v1.0/directory/deletedItems/" + Subject.ObjectId, "GET /v1.0/users/" + Subject.ObjectId + "?$select=id", "GET /v1.0/directory/deletedItems/" + Subject.ObjectId }, handler.Requests);
         Assert.All(handler.Hosts, host => Assert.Equal("graph.microsoft.com", host));
+        await AssertResponsesDisposed(handler);
     }
 
     /// <summary>Retries tolerate an already deleted provider object.</summary>
@@ -35,6 +36,7 @@ public sealed class GraphExternalAccountsTests
         await Provider(http).Revoke(Subject, default);
         await Provider(http).Erase(Subject, default);
         Assert.Equal(5, handler.Requests.Count);
+        await AssertResponsesDisposed(handler);
     }
 
     /// <summary>Provider account state must affirmatively permit a new mapping.</summary>
@@ -51,6 +53,7 @@ public sealed class GraphExternalAccountsTests
         using var handler = new GraphTestHandler([status], body);
         using var http = new HttpClient(handler);
         Assert.Equal(expected, await Provider(http).Exists(Subject, default));
+        await AssertResponsesDisposed(handler);
     }
 
     /// <summary>Client-selected issuer or invalid object IDs never reach Graph.</summary>
@@ -76,6 +79,13 @@ public sealed class GraphExternalAccountsTests
         using var canceled = new CancellationTokenSource();
         await canceled.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Provider(http).Exists(Subject, canceled.Token));
+    }
+
+    private static async Task AssertResponsesDisposed(GraphTestHandler handler)
+    {
+        Assert.NotEmpty(handler.Responses);
+        foreach (var response in handler.Responses)
+            await Assert.ThrowsAsync<ObjectDisposedException>(() => response.Content.ReadAsStringAsync());
     }
 
     private static GraphExternalAccounts Provider(HttpClient http) => new(http, new GraphTestCredential(), new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Entra:Issuer"] = Issuer }).Build());

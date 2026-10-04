@@ -91,6 +91,15 @@ public sealed partial class SqlAccountLifecycle
         await tx.CommitAsync(token);
     }
 
+    private static bool BelongsToErasedUser(object entity, string userId, string ownerProperty) => entity switch
+    {
+        UserEntity user => user.UserId == userId,
+        SubjectEntity subject => subject.UserId == userId,
+        LifecycleDeliveryEntity delivery => delivery.UserId == userId,
+        OutboxMessage message => message.Payload.Contains(ownerProperty, StringComparison.Ordinal),
+        _ => false,
+    };
+
     private async Task Purge(string userId, List<SubjectEntity> subjects, CancellationToken token)
     {
         var rawSubjects = subjects.Select(s => s.Subject).Where(s => !string.IsNullOrEmpty(s)).ToArray();
@@ -113,10 +122,7 @@ public sealed partial class SqlAccountLifecycle
         await db.Deliveries.Where(d => d.UserId == userId).ExecuteDeleteAsync(token);
         await db.Subjects.Where(s => s.UserId == userId).ExecuteDeleteAsync(token);
         await db.Users.Where(u => u.UserId == userId).ExecuteDeleteAsync(token);
-        foreach (var entry in db.ChangeTracker.Entries().Where(e => (e.Entity is UserEntity user && user.UserId == userId)
-            || (e.Entity is SubjectEntity subject && subject.UserId == userId)
-            || (e.Entity is LifecycleDeliveryEntity delivery && delivery.UserId == userId)
-            || (e.Entity is OutboxMessage message && message.Payload.Contains(ownerProperty, StringComparison.Ordinal))).ToArray())
+        foreach (var entry in db.ChangeTracker.Entries().Where(e => BelongsToErasedUser(e.Entity, userId, ownerProperty)).ToArray())
             entry.State = EntityState.Detached;
     }
 }
