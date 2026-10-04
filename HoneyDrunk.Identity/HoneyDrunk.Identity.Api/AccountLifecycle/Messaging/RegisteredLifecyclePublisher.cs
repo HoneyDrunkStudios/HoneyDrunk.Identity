@@ -20,7 +20,9 @@ public sealed class RegisteredLifecyclePublisher : ITransportPublisher, IAsyncDi
     public RegisteredLifecyclePublisher(Azure.Messaging.ServiceBus.ServiceBusClient client, IOptions<LifecycleOptions> registry, ILoggerFactory logger, TimeProvider clock)
     {
         this.clock = clock;
-        publishers = registry.Value.Consumers.Values.Distinct(StringComparer.Ordinal).ToDictionary(address => address, address => new ServiceBusTransportPublisher(client, Options.Create(new AzureServiceBusOptions { Address = address }), logger.CreateLogger<ServiceBusTransportPublisher>()), StringComparer.Ordinal);
+
+        // A failed broker send must remain retryable in SQL; Blob persistence is not delivery.
+        publishers = registry.Value.Consumers.Values.Distinct(StringComparer.Ordinal).ToDictionary(address => address, address => new ServiceBusTransportPublisher(client, Options.Create(new AzureServiceBusOptions { Address = address, BlobFallback = new() { Enabled = false } }), logger.CreateLogger<ServiceBusTransportPublisher>()), StringComparer.Ordinal);
     }
 
     /// <inheritdoc />
