@@ -22,7 +22,7 @@ $common = @("/SourceFile:$packagePath", "/TargetConnectionString:$connection", "
     '/p:IncludeTransactionalScripts=True', '/p:IgnorePermissions=True', '/p:IgnoreRoleMembership=True',
     '/p:ExcludeObjectTypes=Users;Logins;RoleMembership;Permissions')
 
-function Invoke-SchemaAction([string]$Operation, [string]$OutputPath) {
+function Invoke-SchemaAction([ValidateSet('Script', 'DeployReport')][string]$Operation, [string]$OutputPath) {
     $arguments = @('tool', 'run', 'sqlpackage', "/Action:$Operation") + $common
     if ($OutputPath) { $arguments += "/OutputPath:$OutputPath" }
     & dotnet @arguments
@@ -53,11 +53,17 @@ try {
         throw 'Reviewed target, source revision, DACPAC, script or report differs. Generate a fresh plan.'
     }
     $currentReport = Join-Path $reviewPath 'current-report.xml'
+    $currentScript = Join-Path $reviewPath 'current-deploy.sql'
     Invoke-SchemaAction 'DeployReport' $currentReport
-    if ((Get-FileHash -LiteralPath $currentReport -Algorithm SHA256).Hash -ne $manifest.reportSha256) {
+    Invoke-SchemaAction 'Script' $currentScript
+    if ((Get-FileHash -LiteralPath $currentReport -Algorithm SHA256).Hash -ne $manifest.reportSha256 -or
+        (Get-FileHash -LiteralPath $currentScript -Algorithm SHA256).Hash -ne $manifest.scriptSha256) {
         throw 'Schema drift changed the reviewed plan. Publish refused; generate and review a fresh plan.'
     }
-    Invoke-SchemaAction 'Publish' ''
+    # Fail closed until execution can use these reviewed bytes while protecting target
+    # state through execution. SqlPackage Publish replans; an application lock alone
+    # cannot prevent outside DDL. Neither is an acceptable replacement for this hold.
+    throw 'Schema publication is disabled pending a reviewed target-state concurrency boundary and exact-script execution. No deployment SQL was executed.'
 } finally {
     $token = $null
     $common = $null

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: 'Queue the reviewed DACPAC for a separate protected-environment approval after producing the Script and DeployReport.'
+        description: 'Revalidate the reviewed artifacts after approval. SQL execution is held pending the target-state concurrency design.'
         required: true
         type: boolean
         default: false
@@ -48,7 +48,7 @@ jobs:
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          allow-no-subscriptions: true
       - name: Generate Script and DeployReport only
         shell: pwsh
         env:
@@ -93,8 +93,8 @@ jobs:
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - name: Verify reviewed artifact and drift before Publish
+          allow-no-subscriptions: true
+      - name: Verify reviewed artifact and script drift (execution held)
         shell: pwsh
         env:
           SERVER: ${{ vars.IDENTITY_SQL_SERVER }}

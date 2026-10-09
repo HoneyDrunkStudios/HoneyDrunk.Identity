@@ -146,7 +146,10 @@ public sealed class LifecycleMessagingTests
     {
         private readonly OutboxMessage message = new()
         {
-            Id = Guid.NewGuid(), Type = "Synthetic.Lifecycle", Payload = "{}", OccurredAt = DateTimeOffset.UtcNow,
+            Id = Guid.NewGuid(),
+            Type = "Synthetic.Lifecycle",
+            Payload = "{}",
+            OccurredAt = DateTimeOffset.UtcNow,
         };
 
         public OutboxMessageStatus Status { get; private set; } = OutboxMessageStatus.Pending;

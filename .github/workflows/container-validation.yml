@@ -23,7 +23,9 @@ jobs:
         run: docker build --tag identity-validation .
       - name: Test schema review and publish boundary offline
         shell: pwsh
-        run: ./scripts/Test-DatabaseReview.ps1
+        run: |
+          dotnet tool restore
+          ./scripts/Test-DatabaseReview.ps1
       - uses: actions/upload-artifact@v6
         with:
           name: identity-azure-sql

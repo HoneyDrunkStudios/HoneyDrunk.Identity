@@ -44,4 +44,6 @@ An external customer tenant and local registration were configured during develo
 
 See [repository delivery](docs/repository-delivery.md) for review evidence and remaining gates. Native-device authentication, provider key rotation, production transport/erasure and backup recovery still need environment-specific verification. Local account creation was exercised, but the full authenticated Pocket Quests flow after the schema upgrade is not yet confirmed.
 
+The dev schema workflow generates review artifacts and checks both SQL and report drift. SQL execution is disabled pending review of exact-script execution and concurrent-DDL protection; the deployment runbook records that blocker. A successful plan or protected revalidation is not schema deployment readiness.
+
 Run `scripts/Pack-Client.ps1 -OutputDirectory PATH` and `scripts/Test-Packages.ps1 -PackageDirectory PATH` to validate isolated package consumption. No script publishes packages. PR publication does not authorize merge, NuGet release or cloud deployment.
