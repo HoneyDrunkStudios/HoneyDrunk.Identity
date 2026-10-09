@@ -7,6 +7,7 @@ using HoneyDrunk.Identity.Accounts;
 using HoneyDrunk.Identity.Api.AccountLifecycle;
 using HoneyDrunk.Identity.Api.AccountLifecycle.Endpoints;
 using HoneyDrunk.Identity.Api.Authentication;
+using HoneyDrunk.Identity.Api.Configuration;
 using HoneyDrunk.Identity.Api.Health;
 using HoneyDrunk.Identity.Auditing;
 using HoneyDrunk.Identity.Persistence.Context;
@@ -57,12 +58,7 @@ builder.Services.AddHttpClient<IExternalAccounts, GraphExternalAccounts>();
 builder.Services.AddEntraValidation();
 builder.AddLifecycleRuntime();
 builder.Services.AddAuthorization();
-var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-if (origins.Any(origin => !Uri.TryCreate(origin, UriKind.Absolute, out var uri)
-    || (uri.Scheme != Uri.UriSchemeHttps && !(builder.Environment.IsDevelopment() && uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback))
-    || uri.GetLeftPart(UriPartial.Authority) != origin))
-    throw new InvalidOperationException("Cors:AllowedOrigins must contain exact HTTPS origins (loopback is allowed only in Development).");
-builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod()));
+builder.Services.AddIdentityCors(builder.Configuration, builder.Environment);
 var app = builder.Build();
 app.UseCors();
 
