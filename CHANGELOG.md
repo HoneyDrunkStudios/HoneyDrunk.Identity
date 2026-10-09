@@ -2,6 +2,10 @@
 
 ## [0.1.0-alpha.4] - Unreleased candidate
 
+- Prepare dev Container App packaging, zero-traffic candidate deployment, explicit CORS/OTLP configuration and schema-aware health probes.
+- Add an Azure SQL build target and a Script/DeployReport review workflow with separate protected publication, artifact verification and drift checks. Startup never applies schema.
+- Require explicit deployed Graph credentials; resolve the external-tenant app certificate through HoneyDrunk.Vault with ephemeral private-key loading and version refresh.
+- Document verified dev inventory, tenant/network unknowns, cost assumptions, permission approvals, rollback and outstanding lifecycle/recovery gates. No live deployment is performed.
 - Add account lifecycle contracts, feature namespaces and SQL Server database project deployment.
 - Require delegated API scope and support certificate-based local Entra integration.
 - Simplify lifecycle cleanup and delivery filtering, fix the test DACPAC filename, and verify caller disposal of Graph test responses.

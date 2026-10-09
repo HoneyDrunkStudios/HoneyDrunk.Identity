@@ -9,6 +9,7 @@
     <Authors>HoneyDrunkStudios</Authors>
     <RepositoryUrl>https://github.com/HoneyDrunkStudios/HoneyDrunk.Identity</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>Shared HoneyDrunk user identity contracts and client.</Description>

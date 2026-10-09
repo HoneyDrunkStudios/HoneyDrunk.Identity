@@ -1,0 +1,56 @@
+name: Deploy Identity dev
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: identity-dev-release
+  cancel-in-progress: false
+
+jobs:
+  configuration:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: dev
+    outputs:
+      client: ${{ steps.config.outputs.client }}
+      tenant: ${{ steps.config.outputs.tenant }}
+      subscription: ${{ steps.config.outputs.subscription }}
+    steps:
+      - id: config
+        name: Require reviewed deployment setup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENABLED: ${{ vars.IDENTITY_DEPLOYMENT_APPROVED }}
+          CLIENT: ${{ vars.AZURE_CLIENT_ID }}
+          TENANT: ${{ vars.AZURE_TENANT_ID }}
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          set -euo pipefail
+          test "$ENABLED" = 'true'
+          test -n "$CLIENT" && test -n "$TENANT" && test -n "$SUBSCRIPTION"
+          gh api "repos/$GITHUB_REPOSITORY/environments/dev" --jq '.protection_rules[] | select(.type == "required_reviewers") | .reviewers | length' | grep -Eq '^[1-9][0-9]*$'
+          printf 'client=%s\ntenant=%s\nsubscription=%s\n' "$CLIENT" "$TENANT" "$SUBSCRIPTION" >> "$GITHUB_OUTPUT"
+  deploy:
+    needs: configuration
+    permissions:
+      contents: read
+      id-token: write
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-deploy-container-app.yml@main
+    with:
+      environment: dev
+      build-context: .
+      dockerfile: Dockerfile
+      image-name: honeydrunk-identity-api
+      image-tag: dev-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      acr-registry: acrhdshareddev.azurecr.io
+      container-app: ca-hd-identity-dev
+      resource-group: rg-hd-identity-dev
+      azure-client-id: ${{ needs.configuration.outputs.client }}
+      azure-tenant-id: ${{ needs.configuration.outputs.tenant }}
+      azure-subscription-id: ${{ needs.configuration.outputs.subscription }}
+      health-check-url: /health
+      traffic-shift-mode: hold

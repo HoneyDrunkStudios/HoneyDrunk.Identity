@@ -1414,6 +1414,7 @@
           "HoneyDrunk.Identity.Providers.Entra": "[1.0.0, )",
           "HoneyDrunk.Telemetry.OpenTelemetry": "[0.4.1, )",
           "HoneyDrunk.Transport.AzureServiceBus": "[0.7.2, )",
+          "HoneyDrunk.Vault.Providers.AzureKeyVault": "[0.8.1, )",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.12, )"
         }
       },

@@ -4,7 +4,7 @@ The API reads development settings from .NET user secrets (`honeydrunk-identity-
 
 For Graph account checks on Windows, configure `Entra:Graph:TenantId`, `Entra:Graph:ClientId`, and `Entra:Graph:CertificateThumbprint`. Upload the public certificate to that backend app registration, and keep the private key in the current Windows user's Personal certificate store (`CurrentUser/My`). Run Visual Studio or Aspire as that same Windows user. An expired certificate fails closed; replace it and update the app registration and thumbprint before expiration.
 
-Certificate authentication is used only in Development with an explicit thumbprint. Other environments continue to use system-assigned managed identity. Never put a backend certificate, private key, or client secret in the Expo app.
+Certificate-store authentication is used only in Development with an explicit thumbprint. Other environments require an explicit `Entra:Graph:CredentialMode`. Use `Certificate` with a versionless Vault certificate secret for the separate customer tenant; direct `ManagedIdentity` is suitable only when the target directory is the MI's own tenant. See the [deployment review](development-deployment.md) before configuring either mode. Never put a backend certificate, private key, or client secret in the Expo app.
 
 The backend's initial account lookup requires Microsoft Graph application permission `User.Read.All` with admin consent. This read-only setup does not enable account deletion or session revocation; those lifecycle operations require separate permissions and deployment configuration. Do not claim erasure is ready from a successful sign-in test.
 

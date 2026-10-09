@@ -2,7 +2,7 @@ name: PR
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, feat/identity-foundation ]
   push:
     branches: [ main ]
 

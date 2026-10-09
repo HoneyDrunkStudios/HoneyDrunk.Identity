@@ -16,18 +16,21 @@ using HoneyDrunk.Kernel.Abstractions.Identity;
 using HoneyDrunk.Kernel.Hosting;
 using HoneyDrunk.Kernel.Telemetry;
 using HoneyDrunk.Telemetry.OpenTelemetry.Extensions;
+using HoneyDrunk.Vault.Providers.AzureKeyVault.Extensions;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddHoneyDrunkNode(options =>
+var node = builder.Services.AddHoneyDrunkNode(options =>
 {
     options.NodeId = new NodeId("honeydrunk-identity");
     options.SectorId = new SectorId("core");
     options.EnvironmentId = new EnvironmentId(builder.Environment.EnvironmentName.ToLowerInvariant());
     options.StudioId = "honeydrunk-studios";
 });
+if (builder.Configuration["Entra:Graph:CredentialMode"] == "Certificate")
+    node.AddVaultWithAzureKeyVaultBootstrap();
 builder.Services.AddDbContextFactory<IdentityDbContext>(options => options.UseSqlServer(
     builder.Configuration.GetConnectionString("identity") ?? throw new InvalidOperationException("Identity SQL connection is required.")));
 builder.Services.AddScoped<IUserDirectory, SqlUserDirectory>();
@@ -43,7 +46,8 @@ if (!builder.Environment.IsEnvironment("Testing"))
     {
         options.ServiceName = "honeydrunk-identity";
         options.Environment = builder.Environment.EnvironmentName;
-        options.OtlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? "http://localhost:4317";
+        options.OtlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]
+            ?? throw new InvalidOperationException("Configure OTEL_EXPORTER_OTLP_ENDPOINT for the deployed telemetry collector.");
         options.AdditionalActivitySources.Add("HoneyDrunk.Data");
     });
 }
@@ -53,7 +57,12 @@ builder.Services.AddHttpClient<IExternalAccounts, GraphExternalAccounts>();
 builder.Services.AddEntraValidation();
 builder.AddLifecycleRuntime();
 builder.Services.AddAuthorization();
-builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins("http://localhost:8081", "http://127.0.0.1:8081").AllowAnyHeader().AllowAnyMethod()));
+var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+if (origins.Any(origin => !Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+    || (uri.Scheme != Uri.UriSchemeHttps && !(builder.Environment.IsDevelopment() && uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback))
+    || uri.GetLeftPart(UriPartial.Authority) != origin))
+    throw new InvalidOperationException("Cors:AllowedOrigins must contain exact HTTPS origins (loopback is allowed only in Development).");
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod()));
 var app = builder.Build();
 app.UseCors();
 
@@ -73,6 +82,7 @@ app.UseGridContext();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapGet("/health", DatabaseHealthEndpoint.Check);
+app.MapGet("/health/live", () => Results.Ok());
 app.MapLifecycle();
 app.MapGet("/users/me", async (ClaimsPrincipal principal, IUserDirectory directory, CancellationToken token) =>
 {
