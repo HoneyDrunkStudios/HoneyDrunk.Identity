@@ -44,7 +44,7 @@ on its existing healthy Container App and is not modified.
 The merged [Infrastructure Terraform source](https://github.com/HoneyDrunkStudios/HoneyDrunk.Infrastructure/tree/920b1c97617b68dc2f239e1fe959df621fdaa056)
 owns provisioning. Its [migration boundaries](https://github.com/HoneyDrunkStudios/HoneyDrunk.Infrastructure/blob/920b1c97617b68dc2f239e1fe959df621fdaa056/docs/terraform-migration.md)
 and [Identity initialization contract](https://github.com/HoneyDrunkStudios/HoneyDrunk.Infrastructure/blob/920b1c97617b68dc2f239e1fe959df621fdaa056/nodes/identity/README.md)
-govern resource and runtime ownership. Infrastructure #13 is superseded and must not merge.
+govern resource and runtime ownership. Infrastructure #13 is closed as superseded by the Terraform source.
 The selected topology remains:
 
 - `platform/app-network`: proposed `vnet-hd-apps-dev` and dedicated
@@ -111,10 +111,10 @@ An approved SQL administrator can derive the binary SID with `CONVERT(binary(16)
 
 The default SQL Server 150 DACPAC remains for local development. Cloud validation compiles the same schema with `Microsoft.Data.Tools.Schema.Sql.SqlAzureV12DatabaseSchemaProvider` into `bin/AzureSql`; this catches platform differences without `AllowIncompatiblePlatform`. There is no startup schema creation or migration. Successful compilation is not a live migration/recovery rehearsal.
 
-1. The shared Actions and Terraform source are merged. Finish Identity foundation
-   #1 and this dependent #3 through final-head review and normal checks. The caller
+1. Shared Actions, Terraform and Identity foundation #1 are merged. Deployment #3
+   and diagnostic #5 were integrated before foundation main commit `e4f22c7`. The caller
    pins merged Actions `3c01f017f179fa4792fce834c873a38e2e23a7a3` and supplies
-   `actions: read` for its environment-protection check. Infrastructure #13 remains
+   `actions: read` for its environment-protection check. Infrastructure #13 is closed as
    superseded; neither this source merge nor the manual-only deploy workflow
    authorizes a live operation.
 2. Approve names, costs, CIDRs and exact principals/permissions. Review isolated
@@ -182,7 +182,6 @@ Basic sign-in needs SQL, the customer Graph read credential and client authentic
 
 Before enabling deletion/recovery: implement and validate each product's idempotent consumer, private ack transport, scoped Service Bus Sender/Receiver grants, duplicate/out-of-order handling, dead-letter operation, authenticated account proofs, Graph deletion/session-revocation permissions, recovery reconciliation and erasure-ledger preservation beyond all relevant backup windows. Then configure consumers/namespace and enable delivery deliberately. Queue provisioning alone does not meet these gates. The SQL backup policy and the in-database erasure ledger do not yet prove safe restore.
 
-Foundation [PR #1](https://github.com/HoneyDrunkStudios/HoneyDrunk.Identity/pull/1) now has working required **SonarCloud Code Analysis** reporting after the founder repaired App selection. Head `f0ad4f8` passed the real/external gate with 80% new-code coverage, but two open S1075/S6667 findings correctly fail its stricter zero-findings job. Metadata follow-up `abe8412` has 43 passing SQL-backed tests and requires its own hosted and native-review results. No finding has been suppressed or accepted. This implementation remains dependent on `feat/identity-foundation`; refresh/retarget after that foundation passes and merges. Source readiness is distinct from the operational gates above.
+Foundation [PR #1](https://github.com/HoneyDrunkStudios/HoneyDrunk.Identity/pull/1) merged into main as `e4f22c7793608fa08d888e1020017bf3c77df481` on October 10, 2026, including the reviewed deployment and diagnostic source from #3/#5. Its final head `0baf16f` passed all 83 hosted .NET tests, completed native Codex review and the real required Sonar gate plus strict new-code check. The verified result is zero new/open findings, 85% new-code coverage and 0% measured duplication after the owner explicitly approved the five exact declarative-table CPD exclusions documented in [repository delivery](repository-delivery.md#approved-duplication-scope). The earlier S1075/S6667 findings were fixed, not suppressed or accepted. No feature-branch dependency remains; inspect the actual current revision and checks before further source publication.
 
-Proposed Studio status text for its owning task: "Identity dev deployment implementation is in review. Shared Azure resources and separate customer-tenant topology were verified read-only. SQL publication is disabled pending exact-script execution with protection against concurrent DDL. Customer app access, SQL network/identity setup, cost approval, live credential/sign-in/restore validation and the foundation Sonar status remain gates. Nothing has been provisioned or deployed; lifecycle production readiness is not claimed." No Studio file is changed here.
-
+The development deployment source is merged, while SQL publication remains disabled pending the exact-script executor and protection against concurrent DDL. Customer app access, SQL network/identity setup, cost approval, first-runtime initialization and live credential/sign-in/restore validation remain operational gates. No Identity resource has been provisioned or deployed by this source sweep; lifecycle production readiness is not claimed.

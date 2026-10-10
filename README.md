@@ -1,6 +1,6 @@
 # HoneyDrunk.Identity
 
-Shared account API for Pocket Quests and future HoneyDrunk applications. The service owns its SQL database; multiple application databases can share one SQL Server instance. This implementation is under review, not a production release.
+Shared account API for Pocket Quests and future HoneyDrunk applications. The service owns its SQL database; multiple application databases can share one SQL Server instance. The source foundation is merged; this is not a production release.
 
 ## Solution and responsibilities
 
