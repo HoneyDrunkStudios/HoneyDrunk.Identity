@@ -85,7 +85,7 @@ try {
     $package = Join-Path $testRoot 'test.dacpac'
     [IO.File]::WriteAllBytes($package, $source.Stream.ToArray())
     $arguments = @{
-        Server = 'sql-hd-identity-dev.database.windows.net'; Package = $package
+        Server = 'sql-hd-shared-dev.database.windows.net'; Package = $package
         ReviewDirectory = $testRoot; SourceRevision = ('a' * 40)
     }
     & "$PSScriptRoot/Review-DevDatabase.ps1" @arguments

@@ -2,6 +2,7 @@
 
 ## [0.1.0-alpha.4] - Unreleased candidate
 
+- Align the deployment review and offline schema fixture with the approved shared-server/Basic design; document costed network/operator/runner choices while preserving the SQL execution hold.
 - Prepare dev Container App packaging, zero-traffic candidate deployment, explicit CORS/OTLP configuration and schema-aware health probes.
 - Add an Azure SQL build target and a Script/DeployReport review workflow with separate protected revalidation, artifact verification and drift checks. Startup never applies schema.
 - Revalidate actual generated SQL as well as DeployReport; reproduce equal reports with different ALTER COLUMN SQL using real DacFx models. Disable schema execution until the exact-script/concurrent-DDL boundary is reviewed.
