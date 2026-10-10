@@ -2,6 +2,8 @@
 
 ## [0.1.0-alpha.4] - Unreleased candidate
 
+- Require manual lifecycle acknowledgment settlement and reject automatic-completion/Blob-fallback overrides. Keep registered lifecycle publishers broker-only so failed sends remain retryable in the SQL outbox; add local composition regression tests.
+
 - Add account lifecycle contracts, feature namespaces and SQL Server database project deployment.
 - Require delegated API scope and support certificate-based local Entra integration.
 - Simplify lifecycle cleanup and delivery filtering, fix the test DACPAC filename, and verify caller disposal of Graph test responses.
