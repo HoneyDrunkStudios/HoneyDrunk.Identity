@@ -11,6 +11,8 @@ namespace HoneyDrunk.Identity.Providers.Entra.Accounts;
 /// <summary>Managed-identity Graph credential lifecycle; never trusts client-supplied object identifiers.</summary>
 public sealed class GraphExternalAccounts(HttpClient http, TokenCredential credential, IConfiguration configuration) : IExternalAccounts
 {
+    private readonly Uri baseUri = ReadBaseUri(configuration);
+
     /// <inheritdoc />
     public async Task<bool> Exists(ExternalSubject subject, CancellationToken token)
     {
@@ -47,6 +49,20 @@ public sealed class GraphExternalAccounts(HttpClient http, TokenCredential crede
             throw new HttpRequestException("Provider erasure is not yet verified.");
     }
 
+    private static Uri ReadBaseUri(IConfiguration configuration)
+    {
+        if (!Uri.TryCreate(configuration["Entra:Graph:BaseUri"], UriKind.Absolute, out var uri)
+            || uri.Scheme != Uri.UriSchemeHttps
+            || !string.Equals(uri.Host, "graph.microsoft.com", StringComparison.OrdinalIgnoreCase)
+            || !uri.IsDefaultPort
+            || uri.UserInfo.Length != 0
+            || uri.AbsolutePath != "/v1.0/"
+            || uri.Query.Length != 0
+            || uri.Fragment.Length != 0)
+            throw new InvalidOperationException("Entra:Graph:BaseUri must select the trusted Microsoft Graph HTTPS v1.0 endpoint.");
+        return uri;
+    }
+
     private string ObjectId(ExternalSubject subject)
     {
         if (subject.Issuer != configuration["Entra:Issuer"] || !Guid.TryParse(subject.ObjectId, out var id) || id == Guid.Empty)
@@ -61,7 +77,7 @@ public sealed class GraphExternalAccounts(HttpClient http, TokenCredential crede
         try
         {
             var access = await credential.GetTokenAsync(new TokenRequestContext(["https://graph.microsoft.com/.default"]), timeout.Token);
-            using var request = new HttpRequestMessage(method, new Uri("https://graph.microsoft.com/v1.0/" + path));
+            using var request = new HttpRequestMessage(method, new Uri(baseUri, path));
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", access.Token);
             return await http.SendAsync(request, timeout.Token);
         }

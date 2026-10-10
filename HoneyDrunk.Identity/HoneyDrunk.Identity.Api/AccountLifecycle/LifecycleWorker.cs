@@ -33,7 +33,7 @@ public sealed class LifecycleWorker(IServiceScopeFactory scopes, ILogger<Lifecyc
             }
             catch (Exception error) when (error is System.Data.Common.DbException or DbUpdateException or InvalidOperationException or TimeoutException)
             {
-                logger.LogError("Lifecycle maintenance failed ({FailureType}); access restrictions remain in force.", error.GetType().Name);
+                LifecycleFailureLog.Write(logger, error);
             }
 
             await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
