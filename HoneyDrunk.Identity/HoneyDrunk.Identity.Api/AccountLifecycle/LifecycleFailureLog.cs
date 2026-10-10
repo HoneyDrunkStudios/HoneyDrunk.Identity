@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Reflection;
+using System.Runtime.ExceptionServices;
 
 namespace HoneyDrunk.Identity.Api.AccountLifecycle;
 
@@ -12,29 +14,26 @@ public static class LifecycleFailureLog
     {
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(error);
-        logger.LogError(new RedactedFailure(error, 0), "Lifecycle maintenance failed; access restrictions remain in force.");
+        logger.LogError(CreateSnapshot(error, 0), "Lifecycle maintenance failed; access restrictions remain in force.");
     }
 
     // Do not retain the original exception, message, Data, Source, HelpLink, DB entries,
     // file paths or line numbers. Some providers inspect Exception properties instead
     // of ToString(), so overriding only ToString() would not protect those sinks.
-    private sealed class RedactedFailure : Exception
+    private static InvalidOperationException CreateSnapshot(Exception error, int depth)
     {
-        private readonly string? safeStackTrace;
-
-        public RedactedFailure(Exception error, int depth)
-            : base(
-                $"Redacted {error.GetType().FullName}",
-                depth < 3 && error.InnerException is { } inner ? new RedactedFailure(inner, depth + 1) : null)
+        var snapshot = new InvalidOperationException(
+            $"Redacted {error.GetType().FullName} (HResult: {error.HResult})",
+            depth < 3 && error.InnerException is { } inner ? CreateSnapshot(inner, depth + 1) : null);
+        var frames = new StackTrace(error, false).GetFrames();
+        if (frames.Length != 0)
         {
-            HResult = error.HResult;
-            var frames = new StackTrace(error, false).GetFrames();
-            safeStackTrace = frames is null ? null : string.Join(
+            ExceptionDispatchInfo.SetRemoteStackTrace(snapshot, string.Join(
                 Environment.NewLine,
-                frames.Take(32).Select(frame => frame.GetMethod()).Where(method => method is not null)
-                    .Select(method => $"at {method!.DeclaringType?.FullName}.{method.Name}"));
+                frames.Take(32).Select(frame => frame.GetMethod()).OfType<MethodBase>()
+                    .Select(method => $"at {method.DeclaringType?.FullName}.{method.Name}")));
         }
 
-        public override string? StackTrace => safeStackTrace;
+        return snapshot;
     }
 }
