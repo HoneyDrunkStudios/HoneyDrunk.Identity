@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "HoneyDrunk.Standards": {
+        "type": "Direct",
+        "requested": "[0.3.0, )",
+        "resolved": "0.3.0",
+        "contentHash": "OO/tKX6x4Ad+iVp/OLqIxBZWaFgc6QIpGd9rmk4jJysFXKlG6K/gWNpaaQoNF+D97THTFafxY/ISQ+2rEFNwmA=="
+      }
+    }
+  }
+}

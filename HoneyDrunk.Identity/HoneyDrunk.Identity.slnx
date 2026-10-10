@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/Docs/">
+    <File Path="../README.md" />
+  </Folder>
+  <Project Path="HoneyDrunk.Identity/HoneyDrunk.Identity.csproj" />
+  <Project Path="HoneyDrunk.Identity.Abstractions/HoneyDrunk.Identity.Abstractions.csproj" />
+  <Project Path="HoneyDrunk.Identity.Api/HoneyDrunk.Identity.Api.csproj" />
+  <Project Path="HoneyDrunk.Identity.Client/HoneyDrunk.Identity.Client.csproj" />
+  <Project Path="HoneyDrunk.Identity.Database/HoneyDrunk.Identity.Database.sqlproj" Type="42ea0dbd-9cf1-443e-919e-be9c484e4577" />
+  <Project Path="HoneyDrunk.Identity.Providers.Entra/HoneyDrunk.Identity.Providers.Entra.csproj" />
+  <Project Path="HoneyDrunk.Identity.Tests/HoneyDrunk.Identity.Tests.csproj" />
+</Solution>

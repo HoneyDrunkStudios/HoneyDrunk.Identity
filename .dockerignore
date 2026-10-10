@@ -1,0 +1,15 @@
+**/bin
+**/obj
+**/.git
+**/.vs
+.local
+artifacts
+TestResults
+**/*.user
+**/*.pfx
+**/*.pem
+**/*.key
+**/secrets.json
+**/.env
+**/.env.*
+.github

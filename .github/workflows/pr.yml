@@ -1,0 +1,258 @@
+name: PR
+
+on:
+  pull_request:
+    branches: [ main, feat/identity-foundation ]
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-core:
+    name: PR Core
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      checks: write
+      issues: write
+      pull-requests: write
+      security-events: write  # CodeQL SARIF upload
+    # Pin current reviewed workflows, including the nested-solution formatter fix.
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/pr-core.yml@3c01f017f179fa4792fce834c873a38e2e23a7a3
+    with:
+      dotnet-version: '10.0.x'
+      configuration: 'Release'
+      runs-on: 'ubuntu-latest'
+      working-directory: '.'
+      project-path: './HoneyDrunk.Identity/HoneyDrunk.Identity.slnx'
+      fail-on-formatting-issues: true
+      enable-secret-scan: true
+      enable-accessibility-check: false
+      patch-coverage-threshold: 75
+      absolute-coverage-floor: 70
+      post-pr-summary: true
+      actions-ref: '3c01f017f179fa4792fce834c873a38e2e23a7a3'
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  script-coverage:
+    name: Offline script tests and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Measure Python deployment and converter tests
+        run: |
+          python -m pip install -r scripts/coverage-requirements.txt
+          python -m coverage run --branch --source=scripts -m unittest discover -s scripts/tests -v
+          python -m coverage xml -o TestResults/python.xml
+      - name: Measure offline DacFx schema review tests
+        shell: pwsh
+        run: |
+          dotnet tool restore
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $modules = Join-Path $env:RUNNER_TEMP 'identity-coverage-modules'
+          Save-Module Pester -RequiredVersion 5.7.1 -Path $modules -Repository PSGallery -Force
+          Import-Module (Join-Path $modules 'Pester/5.7.1/Pester.psd1')
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'scripts/tests/DatabaseReview.Tests.ps1'
+          $config.Run.Exit = $true
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.Path = @('scripts/Review-DevDatabase.ps1', 'scripts/Test-DatabaseReview.ps1')
+          $config.CodeCoverage.OutputFormat = 'Cobertura'
+          $config.CodeCoverage.OutputPath = 'TestResults/powershell.xml'
+          Invoke-Pester -Configuration $config
+      - name: Convert measured counts to portable Sonar coverage
+        run: python scripts/convert_script_coverage.py --output TestResults/script-coverage.xml TestResults/python.xml TestResults/powershell.xml
+      - uses: actions/upload-artifact@v6
+        with:
+          name: script-coverage
+          path: TestResults/*.xml
+          if-no-files-found: error
+          retention-days: 7
+
+  coverage-reports:
+    name: Assemble measured coverage reports
+    needs: [pr-core, script-coverage]
+    if: |
+      always() && needs.script-coverage.result == 'success' && (
+        (github.event_name == 'pull_request' && needs.pr-core.result == 'success') ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v7
+        if: github.event_name == 'pull_request'
+        with:
+          name: coverage-reports-ubuntu-latest
+          path: TestResults
+      - uses: actions/download-artifact@v7
+        with:
+          name: script-coverage
+          path: TestResults/scripts
+      - uses: actions/upload-artifact@v6
+        with:
+          name: sonar-coverage
+          path: TestResults
+          if-no-files-found: error
+          retention-days: 7
+
+  sonarcloud:
+    name: SonarQube Cloud
+    # Runs on:
+    #   - pull_request (same-repo, after pr-core succeeds) for PR-time analysis
+    #   - push to main (standalone) for main-branch analysis that populates the
+    #     SonarCloud Overview dashboard and leak-period baseline.
+    # The coverage assembly requires successful script tests on both triggers.
+    # On main, the shared scanner also collects .NET coverage as its fallback.
+    if: |
+      always() && needs.coverage-reports.result == 'success' && (
+        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      )
+    needs: coverage-reports
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    # Retain the merged analyzer's measured script-coverage support.
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud.yml@c486644f6382401e3a97dadc44f08ca0d6432de1
+    with:
+      dotnet-version: '10.0.x'
+      runs-on: 'ubuntu-latest'
+      working-directory: '.'
+      project-path: './HoneyDrunk.Identity/HoneyDrunk.Identity.slnx'
+      sonar-organization: 'honeydrunkstudios'
+      sonar-project-key: 'honeydrunkstudios_HoneyDrunk.Identity'
+      sonar-tsql: true
+      coverage-artifact-name: 'sonar-coverage'
+      generic-coverage-report-path: 'TestResults/scripts/script-coverage.xml'
+    secrets:
+      sonar-token: ${{ secrets.SONAR_TOKEN }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  sonar-findings:
+    name: Sonar New-Code Findings
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: sonarcloud
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud-quality-gate.yml@cb2e5880f4e4529c417b1542262b27ca49fcd58d
+    with:
+      sonar-organization: 'honeydrunkstudios'
+      sonar-project-key: 'honeydrunkstudios_HoneyDrunk.Identity'
+      mode: enforce
+    secrets:
+      sonar-token: ${{ secrets.SONAR_TOKEN }}
+
+  sonar-reporting-diagnostics:
+    name: Sonar Reporting Diagnostics
+    needs: sonarcloud
+    if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.sonarcloud.result != 'skipped' && needs.sonarcloud.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Read reporting metadata without changing Sonar settings
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: python
+        run: |
+          import json
+          import os
+          import re
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          token = os.environ.get("SONAR_TOKEN", "")
+          if not token:
+              raise SystemExit("SONAR_TOKEN is unavailable; reporting diagnosis cannot run.")
+
+          # Never follow redirects with authorization, or dump response bodies,
+          # request headers, scannerContext, source files or exception messages.
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          opener = urllib.request.build_opener(NoRedirect())
+          def read(path, **params):
+              url = "https://sonarcloud.io/api/" + path + "?" + urllib.parse.urlencode(params)
+              request = urllib.request.Request(url, headers={"Authorization": "Bearer " + token})
+              try:
+                  with opener.open(request, timeout=30) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as error:
+                  print(json.dumps({"endpoint": path, "httpStatus": error.code}))
+              except (OSError, ValueError):
+                  print(json.dumps({"endpoint": path, "unavailable": True}))
+              return {}
+
+          def safe_warning(value):
+              value = str(value).replace(token, "[redacted]")
+              value = re.sub(r"https?://\S+", "[URL omitted]", value)
+              return " ".join(value.split())[:500]
+
+          project = "honeydrunkstudios_HoneyDrunk.Identity"
+          # Existing main-target PR #1 task, needed to distinguish a decoration
+          # failure from Free-plan restrictions on non-main PR targets.
+          task = read("ce/task", id="AaEm2x-vlLooC1-UC7Ln", additionalFields="warnings").get("task", {})
+          print(json.dumps({"mainTargetTask": {key: task.get(key) for key in
+              ("id", "status", "componentKey", "analysisId", "warningCount")},
+              "warnings": [safe_warning(value) for value in task.get("warnings", [])]}))
+          branches = read("project_branches/list", project=project).get("branches", [])
+          print(json.dumps({"mainBranches": [{"name": item.get("name"), "isMain": item.get("isMain"),
+              "analysisDate": item.get("analysisDate")} for item in branches if item.get("isMain")]}))
+          requests = read("project_pull_requests/list", project=project).get("pullRequests", [])
+          print(json.dumps({"pullRequests": [{key: item.get(key) for key in
+              ("key", "branch", "base", "analysisDate", "status")} for item in requests
+              if str(item.get("key")) in ("1", "5")]}))
+          # Only issue identifiers/rules/locations, never messages or source snippets.
+          for number in ("1", "5"):
+              gate = read("qualitygates/project_status", projectKey=project, pullRequest=number).get("projectStatus", {})
+              print(json.dumps({"pullRequest": number, "qualityGate": {
+                  "status": gate.get("status"), "conditions": [{key: item.get(key) for key in
+                      ("status", "metricKey", "comparator", "errorThreshold", "actualValue")}
+                      for item in gate.get("conditions", [])]}}))
+              findings = read("issues/search", componentKeys=project, pullRequest=number, resolved="false", ps=500)
+              print(json.dumps({"pullRequest": number, "paging": findings.get("paging"),
+                  "issues": [{key: item.get(key) for key in
+                      ("key", "rule", "component", "line", "type", "severity", "status", "resolution")}
+                      for item in findings.get("issues", [])]}))
+          # Numeric file measurements locate coverage/duplication regressions without
+          # retrieving source text, snippets or duplication block contents.
+          metrics = "new_lines_to_cover,new_uncovered_lines,new_coverage,new_duplicated_lines,new_duplicated_lines_density"
+          files = read("measures/component_tree", component=project, pullRequest="1", qualifiers="FIL",
+              metricKeys=metrics, ps=500)
+          print(json.dumps({"foundationFileMeasures": {
+              "paging": files.get("paging"),
+              "components": [{"key": item.get("key"), "path": item.get("path"),
+                  "measures": [{key: measure.get(key) for key in ("metric", "value", "period", "periods")}
+                      for measure in item.get("measures", [])]}
+                  for item in files.get("components", [])]}}))
+
+  coverage-baseline-ratchet:
+    name: Coverage Baseline Ratchet
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+      checks: write
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/coverage-baseline-ratchet.yml@main
+    with:
+      dotnet-version: '10.0.x'
+      configuration: 'Release'
+      runs-on: 'ubuntu-latest'
+      working-directory: '.'
+      project-path: './HoneyDrunk.Identity/HoneyDrunk.Identity.slnx'
+      actions-ref: 'main'
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
