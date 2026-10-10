@@ -59,7 +59,7 @@ public sealed class LifecycleFailureLogTests
         Assert.Equal(4, count);
     }
 
-    private static Exception CaptureFailure()
+    private static DbUpdateException CaptureFailure()
     {
         try
         {
