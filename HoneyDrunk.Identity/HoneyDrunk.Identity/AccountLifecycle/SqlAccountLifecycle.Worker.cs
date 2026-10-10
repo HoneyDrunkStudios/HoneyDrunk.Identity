@@ -26,12 +26,7 @@ public sealed partial class SqlAccountLifecycle
         try
         {
             var subjects = await db.Subjects.Where(s => s.UserId == userId).ToListAsync(token);
-            if (user.State != "Active" && !user.SessionsRevoked)
-            {
-                foreach (var subject in subjects)
-                    await external.Revoke(new(subject.Issuer, subject.Subject, subject.ObjectId), token);
-                user.SessionsRevoked = true;
-            }
+            await RevokeProviderSessions(user, subjects, token);
 
             if (user.State == "Erasing" && deliveries.Count > 0 && deliveries.All(d => d.Acknowledged && d.Version == user.Version))
             {
@@ -99,6 +94,15 @@ public sealed partial class SqlAccountLifecycle
         OutboxMessage message => message.Payload.Contains(ownerProperty, StringComparison.Ordinal),
         _ => false,
     };
+
+    private async Task RevokeProviderSessions(UserEntity user, List<SubjectEntity> subjects, CancellationToken token)
+    {
+        if (user.State == "Active" || user.SessionsRevoked)
+            return;
+        foreach (var subject in subjects)
+            await external.Revoke(new(subject.Issuer, subject.Subject, subject.ObjectId), token);
+        user.SessionsRevoked = true;
+    }
 
     private async Task Purge(string userId, List<SubjectEntity> subjects, CancellationToken token)
     {

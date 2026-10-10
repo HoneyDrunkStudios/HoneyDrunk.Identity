@@ -163,7 +163,7 @@ public sealed partial class SqlAccountLifecycle(IdentityDbContext db, TimeProvid
     {
         delivery.Acknowledgment = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         delivery.ExpiresAt = clock.GetUtcNow().AddHours(1);
-        var intent = new LifecycleIntent(user.UserId, user.Version, user.State, user.ChangedAt!.Value, delivery.ExpiresAt, delivery.Consumer, delivery.Acknowledgment, user.DeletionPausedAt ?? user.ChangedAt!.Value);
+        var intent = new LifecycleIntent(user.UserId, user.Version, user.State, user.ChangedAt!.Value, delivery.ExpiresAt, delivery.Consumer, delivery.Acknowledgment, user.DeletionPausedAt ?? user.ChangedAt.Value);
         db.Set<OutboxMessage>().Add(new()
         {
             Id = Guid.NewGuid(), Type = typeof(LifecycleIntent).AssemblyQualifiedName!, Payload = JsonSerializer.Serialize(intent),
