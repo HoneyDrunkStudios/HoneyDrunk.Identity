@@ -81,6 +81,39 @@ public sealed class GraphExternalAccountsTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Provider(http).Exists(Subject, canceled.Token));
     }
 
+    /// <summary>Invalid endpoint configuration fails before credentials or HTTP can be used.</summary>
+    /// <param name="endpoint">An unsafe or incomplete endpoint.</param>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("/v1.0/")]
+    [InlineData("http://graph.microsoft.com/v1.0/")]
+    [InlineData("https://graph.microsoft.com.attacker.test/v1.0/")]
+    [InlineData("https://attacker.test/v1.0/")]
+    [InlineData("https://graph.microsoft.com:444/v1.0/")]
+    [InlineData("https://secret@graph.microsoft.com/v1.0/")]
+    [InlineData("https://graph.microsoft.com/beta/")]
+    [InlineData("https://graph.microsoft.com/v1.0/?secret=value")]
+    [InlineData("https://graph.microsoft.com/v1.0/#secret")]
+    public void UnsafeEndpointsFailClosed(string? endpoint)
+    {
+        using var handler = new GraphTestHandler([]);
+        using var http = new HttpClient(handler);
+        var error = Assert.Throws<InvalidOperationException>(() => Provider(http, endpoint));
+        Assert.DoesNotContain("secret", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(handler.Requests);
+    }
+
+    /// <summary>A redirect response cannot be treated as successful account lookup.</summary>
+    /// <returns>The provider response test.</returns>
+    [Fact]
+    public async Task RedirectIsNotAnAccountResult()
+    {
+        using var handler = new GraphTestHandler([HttpStatusCode.Redirect]);
+        using var http = new HttpClient(handler);
+        await Assert.ThrowsAsync<HttpRequestException>(() => Provider(http).Exists(Subject, default));
+        Assert.Single(handler.Requests);
+    }
+
     private static async Task AssertResponsesDisposed(GraphTestHandler handler)
     {
         Assert.NotEmpty(handler.Responses);
@@ -88,5 +121,5 @@ public sealed class GraphExternalAccountsTests
             await Assert.ThrowsAsync<ObjectDisposedException>(response.Content.ReadAsStringAsync);
     }
 
-    private static GraphExternalAccounts Provider(HttpClient http) => new(http, new GraphTestCredential(), new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Entra:Issuer"] = Issuer }).Build());
+    private static GraphExternalAccounts Provider(HttpClient http, string? endpoint = "https://graph.microsoft.com/v1.0/") => new(http, new GraphTestCredential(), new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Entra:Issuer"] = Issuer, ["Entra:Graph:BaseUri"] = endpoint }).Build());
 }

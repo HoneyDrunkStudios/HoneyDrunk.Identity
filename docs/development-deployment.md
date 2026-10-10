@@ -52,8 +52,8 @@ The selected topology remains:
   `Microsoft.Sql` service endpoint. Explicit nonoverlapping CIDRs are still required;
   /26 is recommended. No NAT, load balancer, public IP or private endpoint is added.
 - `platform/sql`: proposed `sql-hd-shared-dev` in existing `rg-hd-platform-dev`,
-  East US 2. It owns Entra-only administrator, empty-by-default public firewall
-  while `platform/sql-access` owns the separately approved firewall and exact App Service subnet rule. SQL service endpoints use the public SQL
+  East US 2. It owns the server and Entra-only administrator;
+  `platform/sql-access` owns separately approved firewall rules and the exact App Service subnet rule, with no general IP allowance by default. SQL service endpoints use the public SQL
   FQDN with network rules; this is not Private Link or a private-only database.
 - Identity: dedicated `asp-hd-identity-dev` Linux B1 plan, `app-hd-identity-dev`
   Web App and dedicated vault in `rg-hd-identity-dev`; Basic 5-DTU/2-GiB
@@ -93,7 +93,7 @@ Use separate workload identities and protected GitHub environments for later aut
 |---|---|
 | Infrastructure principal | Existing platform access does not authorize deployment. Identity node needs its resource-group rights and scoped shared-server/database deployment rights because its DB is in the platform group. A dedicated database-only principal needs server read, database/retention write and ARM deployment rights, not server administrator/firewall writes. App setup additionally needs read/join at the exact App Service integration subnet; SQL subnet-rule setup needs joinViaServiceEndpoint/action. Pulse's environment grant is not reusable. No new User Access Administrator role is needed; these leaves create no role assignments |
 | Runtime system MI | `AcrPull` on shared ACR; Key Vault Secrets User on the dedicated Identity vault (only approved certificate material there); SQL contained runtime user below. No control-plane write or SQL DDL |
-| App Service CD / `dev` | Dedicated workforce OIDC app, GitHub subject `repo:HoneyDrunkStudios/HoneyDrunk.Identity:environment:dev`, audience `api://AzureADTokenExchange`; `AcrPush` on shared ACR and only the reviewed Web App/config read and image-update rights on the Identity site. No plan/network/Pulse writes, secret reads, access-admin role or SQL grant. First app initialization belongs to separately approved IaC |
+| App Service CD / `dev` | Dedicated workforce OIDC app, GitHub subject `repo:HoneyDrunkStudios/HoneyDrunk.Identity:environment:dev`, audience `api://AzureADTokenExchange`; `AcrPush` on shared ACR and only the reviewed Web App/config read and image-update rights on the Identity site. No plan/network/Pulse writes, secret reads, access-admin role or SQL grant. First app initialization requires a separately reviewed and approved runtime operation after stopped infrastructure exists |
 | Schema planner / `dev-schema-plan` | Separate workforce OIDC app with corresponding environment subject; contained SQL user with CONNECT and VIEW DEFINITION plus the read access needed for DacFx data-loss checks. Start with SELECT on the current application tables; validate a live Script/DeployReport before accepting this scope. No DDL |
 | Schema publisher / `dev-schema-publish` | Separate workforce OIDC app with corresponding subject; database-scoped `db_owner` on **only** `sqldb-hd-identity-dev` for DacFx. DacFx may alter schemas/constraints/postdeployment data, so `db_ddladmin` alone is not assumed sufficient. No SQL server admin or Azure resource role. Required reviewer and branch policy on environment; consider time-bounded membership |
 | SQL bootstrap administrator | Approved workforce Entra **group**, explicit object ID and group name, as logical-server Entra-only admin. Human-reviewed contained-user/grant setup; no SQL password |
@@ -122,9 +122,10 @@ The default SQL Server 150 DACPAC remains for local development. Cloud validatio
    state/backend and access bootstrap described in Infrastructure's
    [state design](https://github.com/HoneyDrunkStudios/HoneyDrunk.Infrastructure/blob/920b1c97617b68dc2f239e1fe959df621fdaa056/docs/terraform-state.md).
    Register only explicitly approved missing provider namespaces; provider
-   auto-registration is disabled. Import existing owned resources and prove a
-   no-change adoption plan before creation. Do not replay broad platform roots or
-   modify Pulse. Add only the approved SQL subnet rule after its endpoint exists;
+   auto-registration is disabled. First sign-in can use the independent new-resource
+   roots and reference existing ACR/workspace IDs without adopting shared platform or
+   Pulse roots. Any later adoption requires separately reviewed imports and a no-change
+   plan. Do not replay broad platform roots or modify Pulse. Add only the approved SQL subnet rule after its endpoint exists;
    inspect the full live firewall set and distinguish unmanaged rules from state.
 3. Review Identity bootstrap/database/vault creation. Bootstrap creates the
    system MI on a **disabled placeholder Web App**, not a healthy serving API.
