@@ -143,6 +143,11 @@ jobs:
               if str(item.get("key")) in ("1", "5")]}))
           # Only issue identifiers/rules/locations, never messages or source snippets.
           for number in ("1", "5"):
+              gate = read("qualitygates/project_status", projectKey=project, pullRequest=number).get("projectStatus", {})
+              print(json.dumps({"pullRequest": number, "qualityGate": {
+                  "status": gate.get("status"), "conditions": [{key: item.get(key) for key in
+                      ("status", "metricKey", "comparator", "errorThreshold", "actualValue")}
+                      for item in gate.get("conditions", [])]}}))
               findings = read("issues/search", componentKeys=project, pullRequest=number, resolved="false", ps=500)
               print(json.dumps({"pullRequest": number, "paging": findings.get("paging"),
                   "issues": [{key: item.get(key) for key in
