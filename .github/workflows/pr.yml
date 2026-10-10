@@ -141,6 +141,13 @@ jobs:
           print(json.dumps({"pullRequests": [{key: item.get(key) for key in
               ("key", "branch", "base", "analysisDate", "status")} for item in requests
               if str(item.get("key")) in ("1", "5")]}))
+          # Only issue identifiers/rules/locations, never messages or source snippets.
+          for number in ("1", "5"):
+              findings = read("issues/search", componentKeys=project, pullRequest=number, resolved="false", ps=500)
+              print(json.dumps({"pullRequest": number, "paging": findings.get("paging"),
+                  "issues": [{key: item.get(key) for key in
+                      ("key", "rule", "component", "line", "type", "severity", "status", "resolution")}
+                      for item in findings.get("issues", [])]}))
 
   coverage-baseline-ratchet:
     name: Coverage Baseline Ratchet
