@@ -2,7 +2,7 @@ name: PR
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, feat/identity-foundation ]
   push:
     branches: [ main ]
 
@@ -53,7 +53,9 @@ jobs:
       contents: read
       checks: write
       pull-requests: write
-    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud.yml@main
+    # Canary for the gate-wait and SQL Server parser fixes. Keep this immutable
+    # while the reusable change is reviewed; functional branches remain untouched.
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud.yml@0de9b214bf5595ed55bb93b5467578d7abc2450d
     with:
       dotnet-version: '10.0.x'
       runs-on: 'ubuntu-latest'
@@ -61,10 +63,23 @@ jobs:
       project-path: './HoneyDrunk.Identity/HoneyDrunk.Identity.slnx'
       sonar-organization: 'honeydrunkstudios'
       sonar-project-key: 'honeydrunkstudios_HoneyDrunk.Identity'
+      sonar-tsql: true
       coverage-artifact-name: 'coverage-reports-ubuntu-latest'
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
       github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  sonar-findings:
+    name: Sonar New-Code Findings
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: sonarcloud
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud-quality-gate.yml@0de9b214bf5595ed55bb93b5467578d7abc2450d
+    with:
+      sonar-organization: 'honeydrunkstudios'
+      sonar-project-key: 'honeydrunkstudios_HoneyDrunk.Identity'
+      mode: enforce
+    secrets:
+      sonar-token: ${{ secrets.SONAR_TOKEN }}
 
   coverage-baseline-ratchet:
     name: Coverage Baseline Ratchet
