@@ -10,4 +10,6 @@ TestResults
 **/*.pem
 **/*.key
 **/secrets.json
+**/.env
+**/.env.*
 .github
