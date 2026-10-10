@@ -50,8 +50,9 @@ class ScriptCoverageTests(unittest.TestCase):
 
     def test_outside_missing_or_ambiguous_sources_are_rejected(self):
         for filename in ('../missing.py', str(self.root.parent / 'outside.py')):
+            report = self.report([{'number': '1', 'hits': '1'}], filename)
             with self.subTest(filename=filename), self.assertRaises(ValueError):
-                converter.convert([self.report([{'number': '1', 'hits': '1'}], filename)], self.output, self.root)
+                converter.convert([report], self.output, self.root)
         (self.root / 'example.py').write_text('other\n', encoding='utf-8')
         with self.assertRaises(ValueError):
             converter.source_path('example.py', [self.root, self.root / 'scripts'], self.root)
@@ -74,8 +75,9 @@ class ScriptCoverageTests(unittest.TestCase):
                  {'number': '1', 'hits': '1', 'branch': 'true', 'condition-coverage': '200% (2/1)'},
                  {'number': '1', 'hits': '1', 'branch': 'true', 'condition-coverage': '0% (0/0)'}]
         for attributes in cases:
+            line = ET.Element('line', attributes)
             with self.subTest(attributes=attributes), self.assertRaises(ValueError):
-                converter.line_attributes(ET.Element('line', attributes))
+                converter.line_attributes(line)
 
     def test_overlapping_producer_lines_cannot_inflate_coverage(self):
         report = self.report([{'number': '1', 'hits': '1'}])

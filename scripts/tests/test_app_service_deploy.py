@@ -165,8 +165,9 @@ class DeploymentTests(unittest.TestCase):
             azure.assert_not_called()
 
     def test_release_sequence_rejects_unicode_digits_before_azure(self):
+        release = RELEASE.replace('123', '\u0661\u0662\u0663')
         with patch.object(deployment, 'azure') as azure, self.assertRaises(ValueError):
-            deployment.deploy('app-hd-identity-dev', IMAGE, RELEASE.replace('123', '\u0661\u0662\u0663'), deployment.EVIDENCE_FILE)
+            deployment.deploy('app-hd-identity-dev', IMAGE, release, deployment.EVIDENCE_FILE)
         azure.assert_not_called()
 
 

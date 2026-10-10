@@ -29,25 +29,29 @@ def line_attributes(line):
     return attributes
 
 
+def add_report(report, root, files):
+    document = ET.parse(report).getroot()
+    if document.tag != 'coverage':
+        raise ValueError('Expected a Cobertura coverage report')
+    sources = [root / item.text for item in document.findall('./sources/source') if item.text]
+    for item in document.findall('./packages/package/classes/class'):
+        name = source_path(item.attrib['filename'], sources or [root], root)
+        lines = files.setdefault(name, {})
+        # Class-level lines already include method lines. Counting both would
+        # duplicate measured commands, especially in Pester reports.
+        for line in item.findall('./lines/line'):
+            attributes = line_attributes(line)
+            number = int(attributes['lineNumber'])
+            if number in lines:
+                raise ValueError('Overlapping coverage lines require a producer-side merge')
+            lines[number] = attributes
+
+
 def convert(reports, output, root):
     root = root.resolve()
     files = {}
     for report in reports:
-        document = ET.parse(report).getroot()
-        if document.tag != 'coverage':
-            raise ValueError('Expected a Cobertura coverage report')
-        sources = [root / item.text for item in document.findall('./sources/source') if item.text]
-        for item in document.findall('./packages/package/classes/class'):
-            name = source_path(item.attrib['filename'], sources or [root], root)
-            lines = files.setdefault(name, {})
-            # Class-level lines already include method lines. Counting both would
-            # duplicate measured commands, especially in Pester reports.
-            for line in item.findall('./lines/line'):
-                attributes = line_attributes(line)
-                number = int(attributes['lineNumber'])
-                if number in lines:
-                    raise ValueError('Overlapping coverage lines require a producer-side merge')
-                lines[number] = attributes
+        add_report(report, root, files)
     if not files or not all(files.values()):
         raise ValueError('Every coverage source must contain measured executable lines')
     result = ET.Element('coverage', version='1')
