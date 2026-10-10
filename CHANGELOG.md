@@ -2,6 +2,7 @@
 
 ## [0.1.0-alpha.4] - Unreleased candidate
 
+- Use the SQL Server Sonar analyzer and actual new-code checks, simplify session revocation and erasure completion without changing transaction boundaries, and resolve test/analyzer diagnostics and object-initializer formatting.
 - Add account lifecycle contracts, feature namespaces and SQL Server database project deployment.
 - Require delegated API scope and support certificate-based local Entra integration.
 - Simplify lifecycle cleanup and delivery filtering, fix the test DACPAC filename, and verify caller disposal of Graph test responses.
