@@ -9,7 +9,7 @@ public sealed class LifecycleDeliveryEntity
     /// <summary>Gets or sets registered consumer.</summary>
     public string Consumer { get; set; } = string.Empty;
 
-    /// <summary>Gets or sets private queue destination captured at request time.</summary>
+    /// <summary>Gets or sets the private queue destination reconciled with the current registry.</summary>
     public string Destination { get; set; } = string.Empty;
 
     /// <summary>Gets or sets monotonic version.</summary>

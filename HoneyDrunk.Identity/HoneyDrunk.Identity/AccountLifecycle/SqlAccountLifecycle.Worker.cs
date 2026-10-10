@@ -16,11 +16,11 @@ public sealed partial class SqlAccountLifecycle
     {
         await using var tx = await Lock(token);
         var user = await db.Users.SingleOrDefaultAsync(u => u.UserId == userId, token);
-        if (user is null || user.NextAttemptAt > clock.GetUtcNow())
+        if (user is null || user.ChangedAt is null || user.NextAttemptAt > clock.GetUtcNow())
             return;
-        if (user.State == "Inactive" && clock.GetUtcNow() >= user.RecoveryDeadline)
-            await Transition(user, "Erasing", token);
-        var deliveries = await db.Deliveries.Where(d => d.UserId == userId).ToListAsync(token);
+        var deliveries = user.State == "Inactive" && clock.GetUtcNow() >= user.RecoveryDeadline
+            ? await Transition(user, "Erasing", token)
+            : await ReconcileDeliveries(user, token);
         foreach (var delivery in deliveries.Where(d => !d.Acknowledged && d.ExpiresAt <= clock.GetUtcNow()))
             Queue(user, delivery);
         try

@@ -2,6 +2,7 @@
 
 ## [0.1.0-alpha.4] - Unreleased candidate
 
+- Reconcile lifecycle deliveries with the current consumer registry before transitions and retries, retire removed destinations, and renew capabilities after route changes without touching another account's outbox.
 - Verify consumer lifecycle HTTP routes, owner proofs, confirmation payloads, missing status and authentication-versus-availability failures; use a standard redacted exception snapshot with safe method frames.
 - Configure the Graph base URI with a strict HTTPS Microsoft-host/API-path boundary and no redirects; preserve failure diagnostics through a bounded exception snapshot that removes raw messages, data, database entries and file paths before logging.
 - Describe the five Identity-owned SQL tables and all columns, including classification, lifecycle and retention, and name their four existing default constraints without changing the domain model or shared Audit/Outbox tables.

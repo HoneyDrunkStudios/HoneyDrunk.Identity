@@ -203,6 +203,84 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
             Assert.Single(await db.Subjects.Where(s => s.UserId == user.UserId).ToListAsync());
     }
 
+    /// <summary>Transitions and retries use current destinations and cannot retain removed consumers or old capabilities.</summary>
+    /// <param name="operation">The lifecycle transition or retry.</param>
+    /// <returns>The real SQL regression test.</returns>
+    [Theory]
+    [InlineData("recover")]
+    [InlineData("erase")]
+    [InlineData("retry")]
+    public async Task Process_RegistryChanges_ReconcilesDestinationsAndCapabilities(string operation)
+    {
+        var user = await Seed(alice);
+        var other = await Seed(bob);
+        var original = new LifecycleOptions { DeliveryEnabled = true, Consumers = { ["pocketquests"] = "old-queue", ["retired"] = "retired-queue" } };
+        LifecycleAck oldAck;
+        await using (var db = Context())
+        {
+            var service = new SqlAccountLifecycle(db, clock, external, Options.Create(original));
+            await service.Request(new(alice, clock.Now), true);
+            var delivery = await db.Deliveries.SingleAsync(d => d.UserId == user.UserId && d.Consumer == "pocketquests");
+            oldAck = new(user.UserId, delivery.Version, delivery.Consumer, delivery.Acknowledgment);
+            await service.Acknowledge(oldAck);
+            await service.Request(new(bob, clock.Now), true);
+        }
+
+        var current = new LifecycleOptions { DeliveryEnabled = true, Consumers = { ["pocketquests"] = "new-queue", ["added"] = "added-queue" } };
+        clock.Now = operation == "erase" ? clock.Now.AddDays(30) : clock.Now.AddMinutes(1);
+        await using (var db = Context())
+        {
+            var service = new SqlAccountLifecycle(db, clock, external, Options.Create(current));
+            if (operation == "recover")
+                await service.Cancel(new(alice, clock.Now), true);
+            else
+                await service.Process(user.UserId);
+        }
+
+        await using (var db = Context())
+        {
+            var deliveries = await db.Deliveries.Where(d => d.UserId == user.UserId).ToListAsync();
+            Assert.Equal(2, deliveries.Count);
+            Assert.DoesNotContain(deliveries, d => d.Consumer == "retired");
+            var rotated = Assert.Single(deliveries, d => d.Consumer == "pocketquests");
+            Assert.Equal("new-queue", rotated.Destination);
+            Assert.NotEqual(oldAck.Acknowledgment, rotated.Acknowledgment);
+            Assert.All(deliveries, d => Assert.False(d.Acknowledged));
+            var messages = await db.Set<OutboxMessage>().Where(m => m.Payload.Contains(user.UserId)).ToListAsync();
+            Assert.Equal(2, messages.Count);
+            Assert.All(messages, m => Assert.Contains(JsonSerializer.Deserialize<Dictionary<string, string>>(m.Headers!)![OutboxHeaderNames.Destination], current.Consumers.Values));
+            Assert.Equal(2, await db.Set<OutboxMessage>().CountAsync(m => m.Payload.Contains(other.UserId)));
+            var service = new SqlAccountLifecycle(db, clock, external, Options.Create(current));
+            if (operation == "retry")
+                await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.Acknowledge(oldAck));
+            else
+                await service.Acknowledge(oldAck);
+            Assert.False(rotated.Acknowledged);
+            foreach (var delivery in deliveries)
+                await service.Acknowledge(new(user.UserId, delivery.Version, delivery.Consumer, delivery.Acknowledgment));
+        }
+
+        clock.Now = clock.Now.AddMinutes(2);
+        await using (var db = Context())
+        {
+            await new SqlAccountLifecycle(db, clock, external, Options.Create(current)).Process(user.UserId);
+            Assert.Equal(operation != "erase", await db.Users.AnyAsync(u => u.UserId == user.UserId));
+            Assert.True(await db.Users.AnyAsync(u => u.UserId == other.UserId));
+        }
+    }
+
+    /// <summary>A worker call for an account without a lifecycle transition creates no deliveries.</summary>
+    /// <returns>The real SQL regression test.</returns>
+    [Fact]
+    public async Task Process_AccountWithoutTransition_DoesNotCreateDeliveries()
+    {
+        var user = await Seed(alice);
+        await Process(user.UserId);
+        await using var db = Context();
+        Assert.Empty(await db.Deliveries.ToListAsync());
+        Assert.Empty(await db.Set<OutboxMessage>().ToListAsync());
+    }
+
     private static async Task<LifecycleIntent> Intent(IdentityDbContext db, string userId) =>
         JsonSerializer.Deserialize<LifecycleIntent>((await db.Set<OutboxMessage>().Where(m => m.Payload.Contains(userId)).OrderByDescending(m => m.OccurredAt).FirstAsync()).Payload)!;
 

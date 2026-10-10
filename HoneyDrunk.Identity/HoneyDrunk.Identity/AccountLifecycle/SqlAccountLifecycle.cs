@@ -136,27 +136,22 @@ public sealed partial class SqlAccountLifecycle(IdentityDbContext db, TimeProvid
             throw new UnauthorizedAccessException("Sign in again to confirm this account change.");
     }
 
-    private async Task Transition(UserEntity user, string state, CancellationToken token)
+    private async Task<List<LifecycleDeliveryEntity>> Transition(UserEntity user, string state, CancellationToken token)
     {
         user.State = state;
         user.Version++;
         user.ChangedAt = clock.GetUtcNow();
         user.NextAttemptAt = null;
         user.FailureCode = null;
-        var deliveries = await db.Deliveries.Where(d => d.UserId == user.UserId).ToListAsync(token);
-        foreach (var consumer in options.Value.Consumers.Where(consumer => deliveries.All(d => d.Consumer != consumer.Key)))
-        {
-            var added = new LifecycleDeliveryEntity { UserId = user.UserId, Consumer = consumer.Key, Destination = consumer.Value };
-            deliveries.Add(added);
-            db.Deliveries.Add(added);
-        }
-
+        var deliveries = await ReconcileDeliveries(user, token);
         foreach (var delivery in deliveries)
         {
             delivery.Version = user.Version;
             delivery.Acknowledged = false;
             Queue(user, delivery);
         }
+
+        return deliveries;
     }
 
     private void Queue(UserEntity user, LifecycleDeliveryEntity delivery)
