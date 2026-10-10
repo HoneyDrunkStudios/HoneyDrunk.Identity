@@ -161,7 +161,7 @@ jobs:
           print(json.dumps({"foundationFileMeasures": {
               "paging": files.get("paging"),
               "components": [{"key": item.get("key"), "path": item.get("path"),
-                  "measures": [{key: measure.get(key) for key in ("metric", "value", "periods")}
+                  "measures": [{key: measure.get(key) for key in ("metric", "value", "period", "periods")}
                       for measure in item.get("measures", [])]}
                   for item in files.get("components", [])]}}))
 
