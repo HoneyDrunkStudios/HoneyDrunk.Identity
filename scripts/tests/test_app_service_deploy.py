@@ -16,8 +16,8 @@ OLD_RELEASE = 'dev-' + 'd' * 40 + '-122-1'
 
 
 class DeploymentTests(unittest.TestCase):
-    def run_deploy(self, failure=None, image=IMAGE, release=RELEASE):
-        current = ['DOCKER|' + PREVIOUS]
+    def run_deploy(self, failure=None, image=IMAGE, release=RELEASE, current_image=PREVIOUS):
+        current = ['DOCKER|' + current_image]
         calls = []
 
         def azure(args):
@@ -60,7 +60,8 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(sum(c[:3] == ['webapp', 'config', 'set'] for c in calls), 1)
 
     def test_explicit_rollback_redeploys_supplied_digest_without_database_calls(self):
-        evidence, calls = self.run_deploy(image=PREVIOUS, release=OLD_RELEASE)
+        evidence, calls = self.run_deploy(image=PREVIOUS, release=OLD_RELEASE, current_image=IMAGE)
+        self.assertEqual(evidence['previousImage'], IMAGE)
         self.assertEqual(evidence['image'], PREVIOUS)
         self.assertEqual(evidence['releaseId'], OLD_RELEASE)
         self.assertTrue(all(c[0] == 'webapp' for c in calls))
@@ -89,6 +90,41 @@ class DeploymentTests(unittest.TestCase):
                 patch.object(deployment.time, 'sleep'), self.assertRaises(RuntimeError):
             deployment.wait_for_release('identity-test.azurewebsites.net', RELEASE, timeout=10)
 
+    def test_cli_failure_is_redacted_and_not_successful(self):
+        import subprocess
+        with patch.object(deployment.subprocess, 'run', return_value=subprocess.CompletedProcess(
+                ['az'], 1, stdout='sensitive-output', stderr='sensitive-error')):
+            with self.assertRaisesRegex(RuntimeError, '^Azure CLI operation failed;') as error:
+                deployment.azure(['webapp', 'show'])
+            self.assertNotIn('sensitive', str(error.exception))
+
+    def test_malformed_site_fails_before_image_write(self):
+        with patch.object(deployment, 'azure', return_value='not-json') as azure:
+            with self.assertRaises(ValueError):
+                deployment.deploy('app-hd-identity-dev', IMAGE, RELEASE, 'unused.json')
+        self.assertEqual(azure.call_count, 1)
+
+    def test_image_changed_during_health_cannot_report_success(self):
+        site = json.dumps({'id': '/approved/site', 'host': 'identity-test.azurewebsites.net',
+                           'state': 'Running', 'kind': 'app,linux,container'})
+        for responses in [[site, 'DOCKER|' + PREVIOUS, '', 'DOCKER|' + PREVIOUS],
+                          [site, 'DOCKER|' + PREVIOUS, '', 'DOCKER|' + IMAGE, 'DOCKER|' + PREVIOUS]]:
+            with tempfile.TemporaryDirectory() as directory:
+                evidence = Path(directory) / 'release.json'
+                with patch.object(deployment, 'azure', side_effect=responses), \
+                        patch.object(deployment, 'probe', return_value=(200, OLD_RELEASE)), \
+                        patch.object(deployment, 'wait_for_release'), self.assertRaises(RuntimeError):
+                    deployment.deploy('app-hd-identity-dev', IMAGE, RELEASE, evidence)
+                self.assertEqual(json.loads(evidence.read_text())['outcome'], 'failed-or-unknown')
+
+    def test_redirect_handler_refuses_following_another_location(self):
+        with patch.object(deployment.urllib.request, 'build_opener') as builder:
+            builder.return_value.open.return_value.__enter__.return_value.status = 200
+            builder.return_value.open.return_value.__enter__.return_value.headers = {'X-Identity-Release': RELEASE}
+            self.assertEqual(deployment.probe('identity-test.azurewebsites.net', '/health'), (200, RELEASE))
+            handler = builder.call_args.args[0]()
+            self.assertIsNone(handler.redirect_request(None, None, 302, '', {}, 'https://other.example'))
+
     def test_three_consecutive_ready_responses_are_required(self):
         with patch.object(deployment, 'probe', return_value=(200, RELEASE)) as probe, \
                 patch.object(deployment.time, 'monotonic', return_value=0), \
@@ -99,3 +135,4 @@ class DeploymentTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

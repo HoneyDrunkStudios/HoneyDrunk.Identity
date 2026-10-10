@@ -20,7 +20,7 @@ jobs:
       pull-requests: write
       security-events: write  # CodeQL SARIF upload
     # Pin the reviewed formatter fix so CI checks this nested solution and fails on errors.
-    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/pr-core.yml@229f26c83d0680a0b42db9d954586fbdc4d9c5e1
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/pr-core.yml@4d4231f84069ddfdd77d5022852c08a2dfb9df6a
     with:
       dotnet-version: '10.0.x'
       configuration: 'Release'
@@ -33,7 +33,7 @@ jobs:
       patch-coverage-threshold: 75
       absolute-coverage-floor: 70
       post-pr-summary: true
-      actions-ref: '229f26c83d0680a0b42db9d954586fbdc4d9c5e1'
+      actions-ref: '4d4231f84069ddfdd77d5022852c08a2dfb9df6a'
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -84,3 +84,4 @@ jobs:
       actions-ref: 'main'
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
+

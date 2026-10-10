@@ -14,7 +14,7 @@ Read-only Azure and GitHub queries found:
 | Shared ACA environment | `cae-hd-dev`, eastus2, succeeded; Consumption, no VNet configuration |
 | Shared registry | `acrhdshareddev.azurecr.io`, Basic, admin account disabled |
 | Shared broker | `sb-hd-shared-dev`, Standard, zero queues/topics; public endpoint, local authentication enabled |
-| Identity resources | No API Container App, SQL server/database or Key Vault found |
+| Identity resources | No Identity Web App, SQL server/database or Key Vault found |
 | Pulse | `ca-hd-pulse-dev` running, explicit revision `ca-hd-pulse-dev--ca-37998537759-1` at 100%; healthy [release](https://github.com/HoneyDrunkStudios/HoneyDrunk.Pulse/actions/runs/37998537759). Untouched |
 | Infrastructure deploy principal | App `0fce147d-3c2a-408d-b122-34af727dddba`; Contributor and User Access Administrator on platform/Pulse resource groups, no Identity resource-group access |
 | Identity GitHub configuration | No environments or repository variables returned by the read APIs |
@@ -29,31 +29,58 @@ The implemented option extends the existing customer-app certificate approach: t
 
 No certificate is generated or transferred by this change. First inspect the existing app and certificate metadata with approved access, then approve reuse/secure import or a replacement and public-key registration. Grant only Graph **application `User.Read.All`** for initial account lookup. Deletion/revocation permissions and admin consent are separate lifecycle decisions. Never grant Graph roles to the workforce runtime MI for customer-directory access.
 
-Rotation: register the new public certificate in the customer app first, then create the new version under the same approved Key Vault certificate-secret name. The shared Vault cache bounds refresh; a changed secret version rebuilds the token credential. Validate convergence and token acquisition on a candidate before retiring the old public key. Current validity and a private key are required; no secret-value fallback exists. Live rotation and tenant token exchange still require acceptance testing.
+Rotation: register the new public certificate in the customer app first, then create the new version under the same approved Key Vault certificate-secret name. The shared Vault cache bounds refresh; a changed secret version rebuilds the token credential. Validate convergence and token acquisition in the approved development app before retiring the old public key. Current validity and a private key are required; no secret-value fallback exists. Live rotation and tenant token exchange still require acceptance testing.
 
 References: [MI federation prerequisites](https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation-config-app-trust-managed-identity), [customer-tenant supported features](https://learn.microsoft.com/en-us/entra/external-id/customers/concept-supported-features-customers), [customer-account management](https://learn.microsoft.com/en-us/entra/external-id/customers/how-to-manage-customer-accounts).
 
-## Resource, network and cost review
+## Selected development hosting, network and cost
 
-The user approved implementing a **shared SQL server with a separate Basic Identity database** on 2026-10-10. This does not authorize spending, live provisioning or access changes. Infrastructure's isolated `platform/sql` leaf owns `sql-hd-shared-dev` in existing `rg-hd-platform-dev`, East US 2; `nodes/identity` separately declares child `sqldb-hd-identity-dev` on that existing server. Server/admin/firewall ownership is separate from database ownership and grants. No Pocket Quests database is declared. Shared-server tags use `hd:node=honeydrunk-infrastructure`, `hd:cost-center=core-infra`, `hd:dr-tier=T1`; Identity database tags use `honeydrunk-identity`, `identity`, `T2`. Both use `hd:env=dev`, `hd:owner=honeydrunkstudios`, `hd:adr=ADR-0077`. Existing resource-group tags stay unchanged.
+On October 9, 2026 (America/New_York), the user selected **Linux B1 App Service**
+with regional VNet integration and a shared SQL server with a separate Basic
+Identity database. This replaces the earlier Container Apps proposal; it does
+not authorize provisioning, spending, access, merge or deployment. Pulse stays
+on its existing healthy Container App and is not modified.
 
-Rechecking the accessible subscription found no SQL server, customer VNet or VM. `sql-hd-shared-dev` was available, not reserved. Planned SQL FQDN is `sql-hd-shared-dev.database.windows.net`. ACR and logs can be reused; the current ACA environment has null VNet/workload-profile configuration and no guaranteed static outbound IPs. The companion [Infrastructure PR #13](https://github.com/HoneyDrunkStudios/HoneyDrunk.Infrastructure/pull/13) contains `platform/sql/connectivity.md`, with the full costed options and exact approval boundaries. A separate VNet-enabled **workload profiles v2 environment with the Consumption profile** and a classic SQL service endpoint is recommended for review, not the legacy Consumption-only v1 type; no network choice or new environment is implemented yet. Current app Bicep still references `cae-hd-dev`, so application deployment stays blocked pending that choice and any required source update. Never mutate Pulse or its existing environment to resolve this.
+The companion [Infrastructure PR #13](https://github.com/HoneyDrunkStudios/HoneyDrunk.Infrastructure/pull/13)
+owns all Bicep. Its [connectivity plan](https://github.com/HoneyDrunkStudios/HoneyDrunk.Infrastructure/blob/feat/identity-dev/platform/sql/connectivity.md)
+is authoritative for topology, named resources, regional pricing and approval scopes:
 
-| Proposed resource | Initial sizing / cost assumption |
-|---|---|
-| API | Consumption, 0.25 vCPU / 0.5 GiB per replica, min 1 / max 2; a running replica supports retention maintenance. Idle/active compute, requests and revision overlap incur consumption charges; shared free allowances are not assumed available |
-| SQL | Basic, 5 DTU, 2 GiB, local backup redundancy, seven-day PITR; always provisioned, no serverless auto-pause. Dev-only sizing, measure latency/capacity before increasing |
-| Key Vault | Standard, 90-day soft delete via existing module; purge protection is not configured; operations and logging add usage charges |
-| Shared services | Reuse Basic ACR, Standard Service Bus and existing logs/configuration; no new base namespace/registry, but storage, operations and log ingestion can increase |
-| Network / initial schema access | Proposed separate VNet ACA workload profiles v2 environment with the Consumption profile: approximately $25.55/month managed LB/two IPs. Classic SQL service endpoint: no extra endpoint charge. Recommend operator-run schema review through an approved workstation /32 and Entra/MFA, with no paid runner or new VM. Network/access and execution remain held |
+- `platform/app-network`: proposed `vnet-hd-apps-dev` and dedicated
+  `snet-app-service`, delegated to `Microsoft.Web/serverFarms`, with classic
+  `Microsoft.Sql` service endpoint. Explicit nonoverlapping CIDRs are still required;
+  /26 is recommended. No NAT, load balancer, public IP or private endpoint is added.
+- `platform/sql`: proposed `sql-hd-shared-dev` in existing `rg-hd-platform-dev`,
+  East US 2. It owns Entra-only administrator, empty-by-default public firewall
+  and the exact App Service subnet rule. SQL service endpoints use the public SQL
+  FQDN with network rules; this is not Private Link or a private-only database.
+- Identity: dedicated `asp-hd-identity-dev` Linux B1 plan, `app-hd-identity-dev`
+  Web App and dedicated vault in `rg-hd-identity-dev`; Basic 5-DTU/2-GiB
+  `sqldb-hd-identity-dev` on the shared server. No Pocket Quests database is created.
+  Database-contained users separately enforce database authorization.
+- Reuse existing ACR and logging resources. No new broker is required for sign-in.
+  Shared resources and Identity resources retain their documented six ownership tags.
 
-The parent pricing worker verified Basic at $0.161/day, approximately $4.90/730-hour month. Official regional pricing-page data verifies approximately $19.71/month for one continuously active 0.25-vCPU/0.5-GiB API replica. The initial operator-run network/SQL/API illustration is **$50.16/month Azure subtotal before extras**, with no paid runner included; it is not a ceiling or the entire Azure bill. Conservative NAT variant: approximately $86.66 on the same operator-run assumptions. The previous $52.56/$89.06 estimates relied on an ineligible Team/static-IP runner and are withdrawn. Full rates/sources and private-endpoint alternatives are in the Infrastructure connectivity proposal. Excluded: operator time, taxes, logs, Vault operations, ACR/shared services, request/data charges, extra backups and any private operator access. No free allowance/discount assumed; overlapping revisions increase compute. Approve the refreshed regional quote and budget before creation. Basic's 2 GiB includes audit/outbox growth; retention/capacity alerts remain acceptance items.
+The reviewed East US 2 baseline is **$17.31/month**: B1 $0.017/hour × 730 = $12.41,
+SQL Basic $0.161/day × 730/24 ≈ $4.90. This excludes shared ACR/Vault/logging usage,
+bandwidth, additional backup/security features, taxes and other extras; it is not
+an approved budget or the total Azure bill. B1 remains billed when the site is
+stopped; Basic SQL does not auto-pause. Recheck prices and capacity before apply.
+[App Service pricing](https://azure.microsoft.com/en-us/pricing/details/app-service/linux/),
+[SQL pricing](https://azure.microsoft.com/en-us/pricing/details/azure-sql-database/single/).
 
-The SQL server starts with an **empty public firewall by default**. Current app IP allowlisting is only a potential temporary dev compromise: observing the addresses does not guarantee stability. For a stable boundary, review the proposed separate VNet environment and classic `Microsoft.Sql` subnet endpoint/rule, or the costed NAT/private-endpoint alternatives. Initial operator login can use SSMS, workforce Entra/MFA, validated TLS and an explicitly approved workstation /32. No administrator group, client address, subnet rule or runner has been selected. Reject `0.0.0.0` / "allow Azure services", broad GitHub ranges and Pulse IP reuse. Incremental ARM does not remove obsolete firewall rules; compare the full live set and explicitly approve removal.
+The same non-root .NET 10 Docker image runs on App Service. Always On, SQL-aware
+warm-up/Health Check and managed-identity ACR pulls are configured. **B1 has no
+slots**: image and configuration updates can interrupt service. A single instance
+has no health-based failover. Future production sizing, redundancy and deployment
+strategy require a separate review; there is only a dev dispatch path.
 
-**Runner eligibility correction:** the verified organization plan is GitHub Team. Assigned static public IP ranges for larger runners require **Enterprise Cloud**, so the earlier recommendation is withdrawn; no Enterprise upgrade or self-hosted VM is proposed. For later automation, Team supports organization-level Azure private networking for larger runners in **East US 2**. Use a separate runner subnet delegated to `GitHub.Network/networkSettings`, with a classic `Microsoft.Sql` service endpoint and exact SQL subnet rule, never ACA's delegated subnet. Runner addresses are dynamic within that subnet; public static IPs are neither required nor supported for this integration. A SQL private endpoint is optional, not required for the service-endpoint path. [Static-IP restriction](https://docs.github.com/en/actions/how-tos/manage-runners/larger-runners/manage-larger-runners#creating-static-ip-addresses-for-larger-runners), [Team private networking and regions](https://docs.github.com/en/organizations/managing-organization-settings/about-azure-private-networking-for-github-hosted-runners-in-your-organization).
-
-That automated alternative needs separately reviewed CIDR/concurrency, provider registration, network-settings/service permissions, inbound-deny/outbound controls, GitHub runner-group/environment restrictions, OIDC identities and SQL grants. Quote the runner subnet's internet-egress solution separately; it does not inherit ACA's managed egress. A Linux x64 4-core larger runner is $0.012/minute ($2.40 for 200 billed minutes), incremental compute only, not part of the initial subtotal or a complete network quote. No included minutes are assumed. The Infrastructure proposal owns detailed setup and cost decisions. [Setup prerequisites](https://docs.github.com/en/organizations/managing-organization-settings/configuring-private-networking-for-github-hosted-runners-in-your-organization), [runner rates](https://docs.github.com/en/billing/reference/actions-runner-pricing).
+Initial schema review is from an approved workstation /32 with workforce Entra/MFA
+and inspection-only SQL access. The administrator group, operator IP and exact
+CIDRs remain unselected. No `0.0.0.0` Azure-services bypass, broad GitHub IP ranges
+or Pulse IP reuse. Later GitHub Team Azure private networking can use its own
+`GitHub.Network/networkSettings`-delegated subnet with a SQL endpoint/rule and
+separately approved runner costs/access. It cannot share App Service's subnet.
+Assigned static-IP larger runners require Enterprise Cloud; no upgrade is proposed.
 
 ## Exact access decisions held for approval
 
@@ -61,15 +88,15 @@ Use separate workload identities and protected GitHub environments for later aut
 
 | Identity / environment | Proposed scope and permissions |
 |---|---|
-| Infrastructure principal | Existing platform access does not authorize deployment. Identity node needs its resource-group rights and scoped shared-server/database deployment rights because its DB is in the platform group. A dedicated database-only principal needs server read, database/retention write and ARM deployment rights, not server administrator/firewall writes. Environment read/join must target the actually selected ACA environment; Pulse's grant is not reusable. No new User Access Administrator role is needed; these leaves create no role assignments |
+| Infrastructure principal | Existing platform access does not authorize deployment. Identity node needs its resource-group rights and scoped shared-server/database deployment rights because its DB is in the platform group. A dedicated database-only principal needs server read, database/retention write and ARM deployment rights, not server administrator/firewall writes. App setup additionally needs read/join at the exact App Service integration subnet; SQL subnet-rule setup needs joinViaServiceEndpoint/action. Pulse's environment grant is not reusable. No new User Access Administrator role is needed; these leaves create no role assignments |
 | Runtime system MI | `AcrPull` on shared ACR; Key Vault Secrets User on the dedicated Identity vault (only approved certificate material there); SQL contained runtime user below. No control-plane write or SQL DDL |
-| Container CD / `dev` | Dedicated workforce OIDC app, GitHub subject `repo:HoneyDrunkStudios/HoneyDrunk.Identity:environment:dev`, audience `api://AzureADTokenExchange`; `AcrPush` on shared ACR and Container Apps Contributor on the Identity app; separate environment read/join on the actually selected ACA environment. No shared-environment configuration/Pulse writes or access-admin role |
+| App Service CD / `dev` | Dedicated workforce OIDC app, GitHub subject `repo:HoneyDrunkStudios/HoneyDrunk.Identity:environment:dev`, audience `api://AzureADTokenExchange`; `AcrPush` on shared ACR and only the reviewed Web App/config read and image-update rights on the Identity site. No plan/network/Pulse writes, secret reads, access-admin role or SQL grant. First app initialization belongs to separately approved IaC |
 | Schema planner / `dev-schema-plan` | Separate workforce OIDC app with corresponding environment subject; contained SQL user with CONNECT and VIEW DEFINITION plus the read access needed for DacFx data-loss checks. Start with SELECT on the current application tables; validate a live Script/DeployReport before accepting this scope. No DDL |
 | Schema publisher / `dev-schema-publish` | Separate workforce OIDC app with corresponding subject; database-scoped `db_owner` on **only** `sqldb-hd-identity-dev` for DacFx. DacFx may alter schemas/constraints/postdeployment data, so `db_ddladmin` alone is not assumed sufficient. No SQL server admin or Azure resource role. Required reviewer and branch policy on environment; consider time-bounded membership |
 | SQL bootstrap administrator | Approved workforce Entra **group**, explicit object ID and group name, as logical-server Entra-only admin. Human-reviewed contained-user/grant setup; no SQL password |
 | Customer Graph app | Verify existing customer app. Register/reuse approved certificate, application User.Read.All and customer-tenant admin consent; verify API scope, delegated consent, user flow and exact redirect URIs independently |
 
-Configure environment reviewers (prevent self-review where available) and main-only branch policies **before** enabling `IDENTITY_DEPLOYMENT_APPROVED=true` or `IDENTITY_SCHEMA_APPROVED=true`. The workflow checks required reviewers for the write environments and refuses absent setup. Environment changes themselves are held for review. Leave `IDENTITY_SQL_RUNNER` unset for the initial operator path; later it identifies the approved Linux larger runner using the separately accepted private-network path. In each later schema environment configure `IDENTITY_SQL_SERVER` and its own `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`; **no subscription ID or ARM role is required for these SQL-only identities**. Both `azure/login@v2` steps set `allow-no-subscriptions: true` and omit `subscription-id`. The [action implementation at 7184910](https://github.com/Azure/login/blob/7184910d9eb2b1c5e48f7073824a90609bb9b6d6/src/Cli/AzureCliLogin.ts) adds `--allow-no-subscriptions` to the OIDC login and calls subscription selection only when a subscription ID is supplied. The app CD `dev` environment still needs its separate Azure subscription settings. No client secret is required for these OIDC apps.
+Configure environment reviewers (prevent self-review where available) and main-only branch policies **before** enabling `APP_SERVICE_DEPLOYMENT_APPROVED=true` or `IDENTITY_SCHEMA_APPROVED=true`. The workflow checks required reviewers for the write environments and refuses absent setup. Environment changes themselves are held for review. Leave `IDENTITY_SQL_RUNNER` unset for the initial operator path; later it identifies the approved Linux larger runner using the separately accepted private-network path. In each later schema environment configure `IDENTITY_SQL_SERVER` and its own `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`; **no subscription ID or ARM role is required for these SQL-only identities**. Both `azure/login@v2` steps set `allow-no-subscriptions: true` and omit `subscription-id`. The [action implementation at 7184910](https://github.com/Azure/login/blob/7184910d9eb2b1c5e48f7073824a90609bb9b6d6/src/Cli/AzureCliLogin.ts) adds `--allow-no-subscriptions` to the OIDC login and calls subscription selection only when a subscription ID is supplied. The app CD `dev` environment also needs `APP_SERVICE_NAME` and its separate `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` settings. The shared workflow resolves these in the caller's protected dev environment. No client secret is required for these OIDC apps.
 
 ### SQL contained users and runtime boundary
 
@@ -81,20 +108,59 @@ An approved SQL administrator can derive the binary SID with `CONVERT(binary(16)
 
 The default SQL Server 150 DACPAC remains for local development. Cloud validation compiles the same schema with `Microsoft.Data.Tools.Schema.Sql.SqlAzureV12DatabaseSchemaProvider` into `bin/AzureSql`; this catches platform differences without `AllowIncompatiblePlatform`. There is no startup schema creation or migration. Successful compilation is not a live migration/recovery rehearsal.
 
-1. Resolve tenant, network, cost and permission approvals. Inspect both PRs; merge remains separately authorized. Establish approved operator SQL access for initial review, and protect/configure app CD and Vault access separately. Schema-runner networking, protected environments and OIDC remain a later independently approved automation option.
-2. Infrastructure: review isolated `target=platform-sql` with an approved `serverSetup` to create only the shared logical server; never redeploy the entire platform. Resolve and implement the selected network path separately before app bootstrap. Then review `target=node,node=identity` with `provisionDatabase=true`, vault creation and first-app bootstrap. Identity creates only its Basic DB on the existing shared server and cannot rewrite server/admin/firewall settings. The public placeholder creates the system MI before ACR/Vault/SQL grants. Verify its MI **client ID** and the selected network path before granting access. Default steady-state IaC never rewrites image/revisions/traffic. An app or SQL resource name is not connectivity evidence.
-3. Initial operator path, only after access approval: on the approved workstation /32, pin the reviewed source revision and repository tools, build the Azure SQL DACPAC, and authenticate Azure CLI interactively to the workforce tenant with MFA as the approved inspection-only planner. Run `scripts/Review-DevDatabase.ps1` with `Action=Plan`, exact shared `Server`, `Database=sqldb-hd-identity-dev`, `Package`, fresh `ReviewDirectory` and full `SourceRevision`. The script obtains its SQL token in memory from that session; do not print tokens or command lines. Preserve build/tool evidence and review `deploy.sql`, `deploy-report.xml` and `manifest.json` together for exact source/target and hashes, including postdeployment SQL. Do not use the bootstrap administrator for routine planning. Later, after separate runner/network/OIDC approval, `Review Identity dev schema` from main with `publish=false` provides the automated equivalent.
-4. **SQL execution is currently disabled.** `publish=true` queues protected revalidation only: the separate identity verifies all artifact/target/revision hashes and regenerates **both** SQL and DeployReport. Either mismatch rejects the plan. Even unchanged artifacts then fail closed; there is no SqlPackage Publish call. Real DacFx regression tests demonstrate that identical reports can conceal different ALTER COLUMN SQL. DacFx generation blocks possible data loss, excludes users/permissions/role membership, leaves extra objects, and uses transactional scripts, but these options do not bind a later Publish to reviewed bytes.
+1. Review and merge only with explicit approval, in dependency order: Actions #218,
+   Identity foundation #1 (currently Sonar-blocked), then the rebased Identity #3
+   and Infrastructure #13. The consumer pins the exact Actions commit; no mutable
+   workflow reference is used for this release path.
+2. Approve names, costs, CIDRs and exact principals/permissions. Review isolated
+   network and SQL plans, then separately approve apply. Do not replay broad
+   platform infrastructure or modify Pulse. Add only the exact approved SQL subnet
+   rule after its endpoint exists. Inspect the full firewall set because incremental
+   ARM does not delete omitted old rules.
+3. Review Identity bootstrap/database/vault creation. Bootstrap creates the
+   system MI on a **disabled placeholder Web App**, not a healthy serving API.
+   It creates no role assignments. Resolve the runtime MI client ID and obtain
+   separate approved AcrPull, vault-read and contained SQL DML grants.
+4. Build the Azure SQL DACPAC at the reviewed revision. Use the approved operator
+   session and `scripts/Review-DevDatabase.ps1 -Action Plan` with the exact shared
+   SQL FQDN, database, package, source revision and fresh review directory. Review
+   `deploy.sql`, `deploy-report.xml`, `manifest.json` and hashes together. Tokens
+   stay in memory; never publish them or printed credential commands.
+5. **Stop before SQL execution.** `Publish` deliberately fails even after fresh
+   Script/DeployReport comparisons pass. The all-DDL-writer maintenance freeze is
+   still unapproved; exact-script execution with target-state protection and real
+   database tests remains unimplemented. Manual SSMS/SqlPackage Publish is not a
+   bypass. Do not enable execution by changing a workflow variable.
+6. Once schema, customer credentials/configuration and live approval gates are
+   resolved, build/scan a reviewed image with a unique `RELEASE_ID` and retain its
+   ACR digest. Apply complete reviewed `appUpdate` through Infrastructure to
+   initialize and enable the site. Never override image-baked `Identity__ReleaseId`
+   with an app setting. No startup migration runs.
+7. Later image releases use the shared development App Service workflow from
+   Actions and this repo's `scripts/deploy_app_service.py`. Required environment
+   reviewers, explicit enablement and main-only execution are checked. Build/scan
+   precedes push; retained rollback images are scanned again before deployment.
+   The verifier saves the previous digest and observed release before a write,
+   updates only the serving image, reads configuration back, and requires three
+   consecutive HTTP 200 responses from **both** `/health/live` and `/health` with
+   the expected `X-Identity-Release`. An old healthy image cannot satisfy that test.
+8. Inspect release evidence and perform authenticated `/users/me`, authorized
+   DML, denied DDL/account-isolation, telemetry and restart acceptance. Health
+   success alone does not prove any of these. No live acceptance has run.
 
-   Before enabling execution, review and test an implementation that executes the exact reviewed SQL with the supported SQLCMD processor and protects target state from fresh validation through completion. SqlPackage Publish would replan. A cooperative application lock only serializes cooperating publishers and cannot exclude administrator DDL. No new DDL trigger, permission change or custom SQL parser is introduced here. The proposed maintenance freeze covering **all** DDL writers remains unapproved and is a deployment blocker; topology or workstation-path selection does not approve it. Operator execution must await that decision, the tested executor and explicit live approval, then use separately approved database-scoped publisher access, record results and remove temporary access through approved changes. Manual SSMS execution is not a bypass. Do not describe this prepared workflow as a working schema publisher; environment approval variables cannot override the source-level hold.
-5. Build/push the reviewed API image through an approved operator path if needed for first initialization; use its immutable ACR digest in Infrastructure `appUpdate`, with the actual named bootstrap revision pinned at 100%. Configure SQL, Vault, tenant settings, exact HTTPS CORS origins and a verified reachable OTLP collector. The collector endpoint/required authentication is unresolved; do not assume localhost or invent a Pulse endpoint.
-6. Run `Deploy Identity dev`. It builds a unique image tag and uses shared Actions to create a revision at **zero traffic**, with startup/liveness `/health/live` and readiness `/health`. The readiness endpoint binds current mapped tables/columns and SELECT permissions, not just an empty database connection. It does not verify Graph, DML privileges or browser/native sign-in.
-7. On the candidate revision FQDN, check `/health`, `/client-configuration`, unauthenticated `/users/me` = 401, configured/foreign CORS behavior, a real customer sign-in, `/users/me` stable resolution, and a returning user. Verify valid issuer/audience/scope, secret-redacted logs and OTLP arrival. Configure and test the approved web/native redirect URIs in the actual client. Deletion must remain unavailable with lifecycle delivery disabled.
-8. Record image digest, source SHA, candidate name and previous good revision. Only after acceptance and explicit promotion approval, set **that exact candidate** to 100% with `az containerapp ingress traffic set --name ca-hd-identity-dev --resource-group rg-hd-identity-dev --revision-weight '<accepted-revision>=100'`. This document does not authorize running the command. Verify actual traffic and public-host health/sign-in afterward. Do not rebuild the candidate during promotion.
+### Rollback and failure handling
 
-Schema rollback is not an automatic reverse DACPAC. Use backward-compatible additions and keep the old API compatible with the new schema. After failed Publish inspect actual state; generate a fresh plan. For data loss/corruption, use a separately reviewed PITR/recovery procedure with erasure replay and reconciliation before any public access. A restored database must not resurrect deleted accounts.
+A failed update stays failed/unknown and retains evidence. It does not claim an
+automatic rollback. Review the actual state, then explicitly select `rollback`
+with the previously retained immutable digest and its baked release ID. The same
+image-update and release/readiness checks apply; B1 offers no slot swap or isolated
+zero-traffic candidate. Preserve known-good images and release artifacts.
 
-Application rollback selects the previously recorded active, healthy named revision at 100% using the same Identity-only traffic command. Keep that revision active until acceptance; if deactivated, review reactivation and test it first. This restores code/configuration, not database contents, certificate registrations or consent. Shared Actions leaves existing traffic pinned when candidate health fails; verify live routing rather than assuming a complete rollback. Serialize IaC maintenance, schema publication and CD manually across repositories.
+Image rollback does not undo SQL, app settings, certificate registrations or
+consent. Serialize IaC, schema operations and CD across repositories. Database
+recovery needs a separately reviewed PITR drill with erasure replay/reconciliation;
+a restored database must not resurrect deleted accounts. Production lifecycle,
+restore and rollback acceptance remain unproven.
 
 ## Lifecycle and release blockers
 
@@ -105,3 +171,4 @@ Before enabling deletion/recovery: implement and validate each product's idempot
 Foundation [PR #1](https://github.com/HoneyDrunkStudios/HoneyDrunk.Identity/pull/1) at `f95491fd0715cb268ec68cdd7d92aca706b61a48` is blocked: organization ruleset `16846333` requires exact status **SonarCloud Code Analysis**, which is absent even though the Sonar workflow succeeded ([run](https://github.com/HoneyDrunkStudios/HoneyDrunk.Identity/actions/runs/37220987779)). Existing analysis logs also show S8969/S3776/S1075/S6667 warnings; exact new-code issue status could not be retrieved from the public project API. Repair/check the Sonar integration and actual quality gate; do not remove the required check or treat workflow success as zero issues. This implementation is a dependent PR against `feat/identity-foundation`; rebase/retarget after the foundation merges with approval.
 
 Proposed Studio status text for its owning task: "Identity dev deployment implementation is in review. Shared Azure resources and separate customer-tenant topology were verified read-only. SQL publication is disabled pending exact-script execution with protection against concurrent DDL. Customer app access, SQL network/identity setup, cost approval, live credential/sign-in/restore validation and the foundation Sonar status remain gates. Nothing has been provisioned or deployed; lifecycle production readiness is not claimed." No Studio file is changed here.
+
