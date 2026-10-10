@@ -55,7 +55,7 @@ jobs:
       pull-requests: write
     # Canary for the gate-wait and SQL Server parser fixes. Keep this immutable
     # while the reusable change is reviewed; functional branches remain untouched.
-    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud.yml@28b147d2a5b114f3169e74ae59d534c859685026
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud.yml@0de9b214bf5595ed55bb93b5467578d7abc2450d
     with:
       dotnet-version: '10.0.x'
       runs-on: 'ubuntu-latest'
@@ -73,7 +73,7 @@ jobs:
     name: Sonar New-Code Findings
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     needs: sonarcloud
-    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud-quality-gate.yml@28b147d2a5b114f3169e74ae59d534c859685026
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud-quality-gate.yml@0de9b214bf5595ed55bb93b5467578d7abc2450d
     with:
       sonar-organization: 'honeydrunkstudios'
       sonar-project-key: 'honeydrunkstudios_HoneyDrunk.Identity'
