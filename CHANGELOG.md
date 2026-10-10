@@ -2,6 +2,7 @@
 
 ## [0.1.0-alpha.4] - Unreleased candidate
 
+- Describe the five Identity-owned SQL tables and all columns, including classification, lifecycle and retention, and name their four existing default constraints without changing the domain model or shared Audit/Outbox tables.
 - Use the SQL Server Sonar analyzer and actual new-code checks, simplify session revocation and erasure completion without changing transaction boundaries, and resolve test/analyzer diagnostics and object-initializer formatting.
 - Add account lifecycle contracts, feature namespaces and SQL Server database project deployment.
 - Require delegated API scope and support certificate-based local Entra integration.
