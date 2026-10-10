@@ -4,6 +4,8 @@
 **/.expo/
 **/dist/
 **/TestResults/
+**/__pycache__/
+.coverage
 .vs/
 .env
 .env.*
@@ -15,3 +17,7 @@ artifacts/
 .packages/
 **/npm-audit.json
 dependency-audit.json
+
+# Visual Studio per-user state
+*.user
+*.suo
