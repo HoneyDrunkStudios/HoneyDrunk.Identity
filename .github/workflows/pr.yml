@@ -82,7 +82,8 @@ jobs:
 
   sonar-reporting-diagnostics:
     name: Sonar Reporting Diagnostics
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: sonarcloud
+    if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.sonarcloud.result != 'skipped' && needs.sonarcloud.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: read
