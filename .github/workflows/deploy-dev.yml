@@ -1,0 +1,38 @@
+name: Deploy Identity dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'B1 updates the serving site directly; interruptions are possible. Rollback redeploys a retained image, not SQL.'
+        type: choice
+        options: [deploy, rollback]
+        default: deploy
+        required: true
+      rollback-image:
+        description: 'Rollback only: exact retained ACR digest from reviewed release evidence.'
+        type: string
+      rollback-release-id:
+        description: 'Rollback only: baked release ID recorded with that image.'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: identity-dev-release
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-deploy-app-service.yml@4d4231f84069ddfdd77d5022852c08a2dfb9df6a
+    with:
+      operation: ${{ inputs.operation }}
+      registry-name: acrhdshareddev
+      image-name: honeydrunk-identity-api
+      rollback-image: ${{ inputs.rollback-image }}
+      rollback-release-id: ${{ inputs.rollback-release-id }}

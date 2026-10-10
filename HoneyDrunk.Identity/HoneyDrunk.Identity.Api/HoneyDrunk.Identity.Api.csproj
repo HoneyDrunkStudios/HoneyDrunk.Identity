@@ -8,6 +8,7 @@
   <ItemGroup>
     <PackageReference Include="HoneyDrunk.Telemetry.OpenTelemetry" Version="0.4.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
+    <PackageReference Include="HoneyDrunk.Vault.Providers.AzureKeyVault" Version="0.8.1" />
   </ItemGroup>
 
   <PropertyGroup>

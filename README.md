@@ -36,12 +36,14 @@ The development database is `HoneyDrunkIdentity` on `(localdb)\PocketQuests`. Te
 
 ## Sign-in setup
 
-Configure `Entra:Authority`, `Entra:Issuer`, `Entra:Audience`, `Entra:MobileClientId` and `Entra:ApiScope` in local configuration or user secrets. The scope ends in `/access_as_user`. Verify issuer/audience against trusted tenant discovery and app registration. Graph uses a local certificate in Development or managed identity in deployment; no private key or client secret belongs in source or the Expo app. Follow [local Entra sign-in](docs/local-entra-sign-in.md).
+Configure `Entra:Authority`, `Entra:Issuer`, `Entra:Audience`, `Entra:MobileClientId` and `Entra:ApiScope` in local configuration or user secrets. The scope ends in `/access_as_user`. Verify issuer/audience against trusted tenant discovery and app registration. Graph uses a local certificate in Development; deployed credentials must explicitly match the directory tenant. The dev deployment plan uses a customer-app certificate through the shared Vault store because Azure and the customer directory are in different tenants. No private key or client secret belongs in source or the Expo app. Follow [local Entra sign-in](docs/local-entra-sign-in.md) and the [deployment review and approval plan](docs/development-deployment.md).
 
-An external customer tenant and local registration were configured during development. Those settings and credentials are not bundled in this repository. The hosted user flow determines available sign-in methods; the API does not advertise unconfigured social providers. `/client-configuration` returns 503 if public configuration is missing. `/health` checks SQL connectivity only.
+An external customer tenant and local registration were configured during development. Those settings and credentials are not bundled in this repository. The hosted user flow determines available sign-in methods; the API does not advertise unconfigured social providers. `/client-configuration` returns 503 if public configuration is missing. `/health` checks SQL connectivity and mapped schema read access; `/health/live` is independent of SQL. Neither endpoint proves customer sign-in.
 
 ## Review and release
 
 See [repository delivery](docs/repository-delivery.md) for review evidence and remaining gates. Native-device authentication, provider key rotation, production transport/erasure and backup recovery still need environment-specific verification. Local account creation was exercised, but the full authenticated Pocket Quests flow after the schema upgrade is not yet confirmed.
+
+The dev schema workflow generates review artifacts and checks both SQL and report drift. SQL execution is disabled pending review of exact-script execution and concurrent-DDL protection; the deployment runbook records that blocker. A successful plan or protected revalidation is not schema deployment readiness.
 
 Run `scripts/Pack-Client.ps1 -OutputDirectory PATH` and `scripts/Test-Packages.ps1 -PackageDirectory PATH` to validate isolated package consumption. No script publishes packages. PR publication does not authorize merge, NuGet release or cloud deployment.

@@ -166,8 +166,12 @@ public sealed partial class SqlAccountLifecycle(IdentityDbContext db, TimeProvid
         var intent = new LifecycleIntent(user.UserId, user.Version, user.State, user.ChangedAt!.Value, delivery.ExpiresAt, delivery.Consumer, delivery.Acknowledgment, user.DeletionPausedAt ?? user.ChangedAt!.Value);
         db.Set<OutboxMessage>().Add(new()
         {
-            Id = Guid.NewGuid(), Type = typeof(LifecycleIntent).AssemblyQualifiedName!, Payload = JsonSerializer.Serialize(intent),
-            OccurredAt = clock.GetUtcNow(), TenantId = "internal", CorrelationId = Guid.NewGuid().ToString("N"),
+            Id = Guid.NewGuid(),
+            Type = typeof(LifecycleIntent).AssemblyQualifiedName!,
+            Payload = JsonSerializer.Serialize(intent),
+            OccurredAt = clock.GetUtcNow(),
+            TenantId = "internal",
+            CorrelationId = Guid.NewGuid().ToString("N"),
             Headers = JsonSerializer.Serialize(new Dictionary<string, string> { [OutboxHeaderNames.Destination] = delivery.Destination }),
         });
     }

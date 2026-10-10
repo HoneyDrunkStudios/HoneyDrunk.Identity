@@ -14,7 +14,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectVersion>4.1</ProjectVersion>
     <ProjectGuid>{6f2d6a6e-152c-46d2-a915-5f6baf4ac447}</ProjectGuid>
-    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql150DatabaseSchemaProvider</DSP>
+    <DSP Condition="'$(DSP)' == ''">Microsoft.Data.Tools.Schema.Sql.Sql150DatabaseSchemaProvider</DSP>
     <OutputType>Database</OutputType>
     <RootNamespace>HoneyDrunk.Identity.Database</RootNamespace>
     <AssemblyName>HoneyDrunk.Identity.Database</AssemblyName>
