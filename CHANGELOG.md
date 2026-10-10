@@ -14,6 +14,7 @@
 - Pin the shared formatter correction and enable strict CI formatting of the nested solution; workspace/invocation errors no longer become successful warning-only checks.
 - Require explicit deployed Graph credentials; resolve the external-tenant app certificate through HoneyDrunk.Vault with ephemeral private-key loading and version refresh.
 - Document verified dev inventory, tenant/network unknowns, cost assumptions, permission approvals, rollback and outstanding lifecycle/recovery gates. No live deployment is performed.
+- Verify consumer lifecycle HTTP routes, owner proofs, confirmation payloads, missing status and authentication-versus-availability failures; use a standard redacted exception snapshot with safe method frames.
 - Configure the Graph base URI with a strict HTTPS Microsoft-host/API-path boundary and no redirects; preserve failure diagnostics through a bounded exception snapshot that removes raw messages, data, database entries and file paths before logging.
 - Describe the five Identity-owned SQL tables and all columns, including classification, lifecycle and retention, and name their four existing default constraints without changing the domain model or shared Audit/Outbox tables.
 - Use the SQL Server Sonar analyzer and actual new-code checks, simplify session revocation and erasure completion without changing transaction boundaries, and resolve test/analyzer diagnostics and object-initializer formatting.
