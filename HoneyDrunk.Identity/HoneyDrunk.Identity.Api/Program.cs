@@ -49,7 +49,8 @@ if (!builder.Environment.IsEnvironment("Testing"))
 }
 
 builder.Services.AddGraphCredential(builder.Configuration, builder.Environment);
-builder.Services.AddHttpClient<IExternalAccounts, GraphExternalAccounts>();
+builder.Services.AddHttpClient<IExternalAccounts, GraphExternalAccounts>()
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddEntraValidation();
 builder.AddLifecycleRuntime();
 builder.Services.AddAuthorization();
