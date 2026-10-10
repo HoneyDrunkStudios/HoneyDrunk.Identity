@@ -19,21 +19,94 @@ jobs:
       issues: write
       pull-requests: write
       security-events: write  # CodeQL SARIF upload
-    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/pr-core.yml@main
+    # Pin current reviewed workflows, including the nested-solution formatter fix.
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/pr-core.yml@3c01f017f179fa4792fce834c873a38e2e23a7a3
     with:
       dotnet-version: '10.0.x'
       configuration: 'Release'
       runs-on: 'ubuntu-latest'
       working-directory: '.'
       project-path: './HoneyDrunk.Identity/HoneyDrunk.Identity.slnx'
+      fail-on-formatting-issues: true
       enable-secret-scan: true
       enable-accessibility-check: false
       patch-coverage-threshold: 75
       absolute-coverage-floor: 70
       post-pr-summary: true
-      actions-ref: 'main'
+      actions-ref: '3c01f017f179fa4792fce834c873a38e2e23a7a3'
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  script-coverage:
+    name: Offline script tests and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Measure Python deployment and converter tests
+        run: |
+          python -m pip install -r scripts/coverage-requirements.txt
+          python -m coverage run --branch --source=scripts -m unittest discover -s scripts/tests -v
+          python -m coverage xml -o TestResults/python.xml
+      - name: Measure offline DacFx schema review tests
+        shell: pwsh
+        run: |
+          dotnet tool restore
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $modules = Join-Path $env:RUNNER_TEMP 'identity-coverage-modules'
+          Save-Module Pester -RequiredVersion 5.7.1 -Path $modules -Repository PSGallery -Force
+          Import-Module (Join-Path $modules 'Pester/5.7.1/Pester.psd1')
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'scripts/tests/DatabaseReview.Tests.ps1'
+          $config.Run.Exit = $true
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.Path = @('scripts/Review-DevDatabase.ps1', 'scripts/Test-DatabaseReview.ps1')
+          $config.CodeCoverage.OutputFormat = 'Cobertura'
+          $config.CodeCoverage.OutputPath = 'TestResults/powershell.xml'
+          Invoke-Pester -Configuration $config
+      - name: Convert measured counts to portable Sonar coverage
+        run: python scripts/convert_script_coverage.py --output TestResults/script-coverage.xml TestResults/python.xml TestResults/powershell.xml
+      - uses: actions/upload-artifact@v6
+        with:
+          name: script-coverage
+          path: TestResults/*.xml
+          if-no-files-found: error
+          retention-days: 7
+
+  coverage-reports:
+    name: Assemble measured coverage reports
+    needs: [pr-core, script-coverage]
+    if: |
+      always() && needs.script-coverage.result == 'success' && (
+        (github.event_name == 'pull_request' && needs.pr-core.result == 'success') ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v7
+        if: github.event_name == 'pull_request'
+        with:
+          name: coverage-reports-ubuntu-latest
+          path: TestResults
+      - uses: actions/download-artifact@v7
+        with:
+          name: script-coverage
+          path: TestResults/scripts
+      - uses: actions/upload-artifact@v6
+        with:
+          name: sonar-coverage
+          path: TestResults
+          if-no-files-found: error
+          retention-days: 7
 
   sonarcloud:
     name: SonarQube Cloud
@@ -41,20 +114,20 @@ jobs:
     #   - pull_request (same-repo, after pr-core succeeds) for PR-time analysis
     #   - push to main (standalone) for main-branch analysis that populates the
     #     SonarCloud Overview dashboard and leak-period baseline.
-    # `always()` is required because pr-core is skipped on push events; without
-    # it, GitHub Actions skips downstream jobs whose declared `needs:` was skipped.
+    # The coverage assembly requires successful script tests on both triggers.
+    # On main, the shared scanner also collects .NET coverage as its fallback.
     if: |
-      always() && (
-        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.pr-core.result == 'success') ||
+      always() && needs.coverage-reports.result == 'success' && (
+        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
         (github.event_name == 'push' && github.ref == 'refs/heads/main')
       )
-    needs: pr-core
+    needs: coverage-reports
     permissions:
       contents: read
       checks: write
       pull-requests: write
-    # Pin the merged gate-wait, T-SQL and Cloud new-code measures fixes.
-    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud.yml@cb2e5880f4e4529c417b1542262b27ca49fcd58d
+    # Retain the merged analyzer's measured script-coverage support.
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud.yml@c486644f6382401e3a97dadc44f08ca0d6432de1
     with:
       dotnet-version: '10.0.x'
       runs-on: 'ubuntu-latest'
@@ -63,7 +136,8 @@ jobs:
       sonar-organization: 'honeydrunkstudios'
       sonar-project-key: 'honeydrunkstudios_HoneyDrunk.Identity'
       sonar-tsql: true
-      coverage-artifact-name: 'coverage-reports-ubuntu-latest'
+      coverage-artifact-name: 'sonar-coverage'
+      generic-coverage-report-path: 'TestResults/scripts/script-coverage.xml'
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
       github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -182,3 +256,4 @@ jobs:
       actions-ref: 'main'
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
+
