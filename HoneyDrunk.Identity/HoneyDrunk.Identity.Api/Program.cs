@@ -61,6 +61,17 @@ builder.Services.AddAuthorization();
 builder.Services.AddIdentityCors(builder.Configuration, builder.Environment);
 var app = builder.Build();
 app.UseCors();
+var releaseId = builder.Configuration["Identity:ReleaseId"] ?? "local";
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/health"))
+    {
+        context.Response.Headers["X-Identity-Release"] = releaseId;
+        context.Response.Headers.CacheControl = "no-store";
+    }
+
+    await next(context);
+});
 
 // Public clients cannot assert internal Grid ownership or arbitrary baggage.
 app.Use(async (context, next) =>
