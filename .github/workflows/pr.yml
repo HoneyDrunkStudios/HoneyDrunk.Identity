@@ -153,6 +153,17 @@ jobs:
                   "issues": [{key: item.get(key) for key in
                       ("key", "rule", "component", "line", "type", "severity", "status", "resolution")}
                       for item in findings.get("issues", [])]}))
+          # Numeric file measurements locate coverage/duplication regressions without
+          # retrieving source text, snippets or duplication block contents.
+          metrics = "new_lines_to_cover,new_uncovered_lines,new_coverage,new_duplicated_lines,new_duplicated_lines_density"
+          files = read("measures/component_tree", component=project, pullRequest="1", qualifiers="FIL",
+              metricKeys=metrics, ps=500)
+          print(json.dumps({"foundationFileMeasures": {
+              "paging": files.get("paging"),
+              "components": [{"key": item.get("key"), "path": item.get("path"),
+                  "measures": [{key: measure.get(key) for key in ("metric", "value", "periods")}
+                      for measure in item.get("measures", [])]}
+                  for item in files.get("components", [])]}}))
 
   coverage-baseline-ratchet:
     name: Coverage Baseline Ratchet
