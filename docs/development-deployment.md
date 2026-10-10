@@ -41,9 +41,11 @@ Identity database. This replaces the earlier Container Apps proposal; it does
 not authorize provisioning, spending, access, merge or deployment. Pulse stays
 on its existing healthy Container App and is not modified.
 
-The companion [Infrastructure PR #13](https://github.com/HoneyDrunkStudios/HoneyDrunk.Infrastructure/pull/13)
-owns all Bicep. Its [connectivity plan](https://github.com/HoneyDrunkStudios/HoneyDrunk.Infrastructure/blob/feat/identity-dev/platform/sql/connectivity.md)
-is authoritative for topology, named resources, regional pricing and approval scopes:
+The merged [Infrastructure Terraform source](https://github.com/HoneyDrunkStudios/HoneyDrunk.Infrastructure/tree/920b1c97617b68dc2f239e1fe959df621fdaa056)
+owns provisioning. Its [migration boundaries](https://github.com/HoneyDrunkStudios/HoneyDrunk.Infrastructure/blob/920b1c97617b68dc2f239e1fe959df621fdaa056/docs/terraform-migration.md)
+and [Identity initialization contract](https://github.com/HoneyDrunkStudios/HoneyDrunk.Infrastructure/blob/920b1c97617b68dc2f239e1fe959df621fdaa056/nodes/identity/README.md)
+govern resource and runtime ownership. Infrastructure #13 is superseded and must not merge.
+The selected topology remains:
 
 - `platform/app-network`: proposed `vnet-hd-apps-dev` and dedicated
   `snet-app-service`, delegated to `Microsoft.Web/serverFarms`, with classic
@@ -51,11 +53,12 @@ is authoritative for topology, named resources, regional pricing and approval sc
   /26 is recommended. No NAT, load balancer, public IP or private endpoint is added.
 - `platform/sql`: proposed `sql-hd-shared-dev` in existing `rg-hd-platform-dev`,
   East US 2. It owns Entra-only administrator, empty-by-default public firewall
-  and the exact App Service subnet rule. SQL service endpoints use the public SQL
+  while `platform/sql-access` owns the separately approved firewall and exact App Service subnet rule. SQL service endpoints use the public SQL
   FQDN with network rules; this is not Private Link or a private-only database.
 - Identity: dedicated `asp-hd-identity-dev` Linux B1 plan, `app-hd-identity-dev`
   Web App and dedicated vault in `rg-hd-identity-dev`; Basic 5-DTU/2-GiB
   `sqldb-hd-identity-dev` on the shared server. No Pocket Quests database is created.
+  `nodes/identity`, `nodes/identity-vault` and `nodes/identity-data` own these separate lifecycles.
   Database-contained users separately enforce database authorization.
 - Reuse existing ACR and logging resources. No new broker is required for sign-in.
   Shared resources and Identity resources retain their documented six ownership tags.
@@ -108,15 +111,21 @@ An approved SQL administrator can derive the binary SID with `CONVERT(binary(16)
 
 The default SQL Server 150 DACPAC remains for local development. Cloud validation compiles the same schema with `Microsoft.Data.Tools.Schema.Sql.SqlAzureV12DatabaseSchemaProvider` into `bin/AzureSql`; this catches platform differences without `AllowIncompatiblePlatform`. There is no startup schema creation or migration. Successful compilation is not a live migration/recovery rehearsal.
 
-1. Review and merge only with explicit approval, in dependency order: Actions #218,
-   Identity foundation #1 (currently Sonar-blocked), then the rebased Identity #3
-   and Infrastructure #13. The consumer pins the exact Actions commit; no mutable
-   workflow reference is used for this release path.
+1. The shared Actions and Terraform source are merged. Finish Identity foundation
+   #1 and this dependent #3 through final-head review and normal checks. The caller
+   pins merged Actions `3c01f017f179fa4792fce834c873a38e2e23a7a3` and supplies
+   `actions: read` for its environment-protection check. Infrastructure #13 remains
+   superseded; neither this source merge nor the manual-only deploy workflow
+   authorizes a live operation.
 2. Approve names, costs, CIDRs and exact principals/permissions. Review isolated
-   network and SQL plans, then separately approve apply. Do not replay broad
-   platform infrastructure or modify Pulse. Add only the exact approved SQL subnet
-   rule after its endpoint exists. Inspect the full firewall set because incremental
-   ARM does not delete omitted old rules.
+   network and SQL plans, then separately approve apply. First approve the dedicated
+   state/backend and access bootstrap described in Infrastructure's
+   [state design](https://github.com/HoneyDrunkStudios/HoneyDrunk.Infrastructure/blob/920b1c97617b68dc2f239e1fe959df621fdaa056/docs/terraform-state.md).
+   Register only explicitly approved missing provider namespaces; provider
+   auto-registration is disabled. Import existing owned resources and prove a
+   no-change adoption plan before creation. Do not replay broad platform roots or
+   modify Pulse. Add only the approved SQL subnet rule after its endpoint exists;
+   inspect the full live firewall set and distinguish unmanaged rules from state.
 3. Review Identity bootstrap/database/vault creation. Bootstrap creates the
    system MI on a **disabled placeholder Web App**, not a healthy serving API.
    It creates no role assignments. Resolve the runtime MI client ID and obtain
@@ -133,9 +142,13 @@ The default SQL Server 150 DACPAC remains for local development. Cloud validatio
    bypass. Do not enable execution by changing a workflow variable.
 6. Once schema, customer credentials/configuration and live approval gates are
    resolved, build/scan a reviewed image with a unique `RELEASE_ID` and retain its
-   ACR digest. Apply complete reviewed `appUpdate` through Infrastructure to
-   initialize and enable the site. Never override image-baked `Identity__ReleaseId`
-   with an app setting. No startup migration runs.
+   ACR digest. Use a separately approved runtime-initialization operation matching
+   the Infrastructure contract to set reviewed settings, health path, image and
+   enabled state. Terraform ignores those CD-owned fields after creation; a normal
+   apply cannot activate the placeholder or act as an application-settings editor.
+   Do not place certificate material or runtime settings in Terraform state. Never
+   override image-baked `Identity__ReleaseId` with an app setting. No startup
+   migration runs.
 7. Later image releases use the shared development App Service workflow from
    Actions and this repo's `scripts/deploy_app_service.py`. Required environment
    reviewers, explicit enablement and main-only execution are checked. Build/scan
@@ -168,7 +181,7 @@ Basic sign-in needs SQL, the customer Graph read credential and client authentic
 
 Before enabling deletion/recovery: implement and validate each product's idempotent consumer, private ack transport, scoped Service Bus Sender/Receiver grants, duplicate/out-of-order handling, dead-letter operation, authenticated account proofs, Graph deletion/session-revocation permissions, recovery reconciliation and erasure-ledger preservation beyond all relevant backup windows. Then configure consumers/namespace and enable delivery deliberately. Queue provisioning alone does not meet these gates. The SQL backup policy and the in-database erasure ledger do not yet prove safe restore.
 
-Foundation [PR #1](https://github.com/HoneyDrunkStudios/HoneyDrunk.Identity/pull/1) at `f95491fd0715cb268ec68cdd7d92aca706b61a48` is blocked: organization ruleset `16846333` requires exact status **SonarCloud Code Analysis**, which is absent even though the Sonar workflow succeeded ([run](https://github.com/HoneyDrunkStudios/HoneyDrunk.Identity/actions/runs/37220987779)). Existing analysis logs also show S8969/S3776/S1075/S6667 warnings; exact new-code issue status could not be retrieved from the public project API. Repair/check the Sonar integration and actual quality gate; do not remove the required check or treat workflow success as zero issues. This implementation is a dependent PR against `feat/identity-foundation`; rebase/retarget after the foundation merges with approval.
+Foundation [PR #1](https://github.com/HoneyDrunkStudios/HoneyDrunk.Identity/pull/1) now has working required **SonarCloud Code Analysis** reporting after the founder repaired App selection. Head `f0ad4f8` passed the real/external gate with 80% new-code coverage, but two open S1075/S6667 findings correctly fail its stricter zero-findings job. Metadata follow-up `abe8412` has 43 passing SQL-backed tests and requires its own hosted and native-review results. No finding has been suppressed or accepted. This implementation remains dependent on `feat/identity-foundation`; refresh/retarget after that foundation passes and merges. Source readiness is distinct from the operational gates above.
 
 Proposed Studio status text for its owning task: "Identity dev deployment implementation is in review. Shared Azure resources and separate customer-tenant topology were verified read-only. SQL publication is disabled pending exact-script execution with protection against concurrent DDL. Customer app access, SQL network/identity setup, cost approval, live credential/sign-in/restore validation and the foundation Sonar status remain gates. Nothing has been provisioned or deployed; lifecycle production readiness is not claimed." No Studio file is changed here.
 

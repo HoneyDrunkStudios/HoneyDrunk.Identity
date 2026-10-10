@@ -20,7 +20,7 @@ public sealed class DatabaseHealthTests(SqlServerFixture sql) : IClassFixture<Sq
 
         var result = await DatabaseHealthEndpoint.Check(db, cancellation.Token);
 
-        Assert.Equal(StatusCodes.Status503ServiceUnavailable, Assert.IsAssignableFrom<IStatusCodeHttpResult>(result).StatusCode);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, Assert.IsType<IStatusCodeHttpResult>(result, exactMatch: false).StatusCode);
     }
 
     /// <summary>Readiness distinguishes an absent database from a migrated database.</summary>
@@ -32,15 +32,15 @@ public sealed class DatabaseHealthTests(SqlServerFixture sql) : IClassFixture<Sq
         try
         {
             var absent = await DatabaseHealthEndpoint.Check(db, CancellationToken.None);
-            Assert.Equal(StatusCodes.Status503ServiceUnavailable, Assert.IsAssignableFrom<IStatusCodeHttpResult>(absent).StatusCode);
+            Assert.Equal(StatusCodes.Status503ServiceUnavailable, Assert.IsType<IStatusCodeHttpResult>(absent, exactMatch: false).StatusCode);
 
             await DatabaseSchema.DeployAsync(db.Database);
             var ready = await DatabaseHealthEndpoint.Check(db, CancellationToken.None);
-            Assert.Equal(StatusCodes.Status200OK, Assert.IsAssignableFrom<IStatusCodeHttpResult>(ready).StatusCode);
+            Assert.Equal(StatusCodes.Status200OK, Assert.IsType<IStatusCodeHttpResult>(ready, exactMatch: false).StatusCode);
 
             await db.Database.ExecuteSqlRawAsync("DROP TABLE [dbo].[Subjects]");
             var missingSchema = await DatabaseHealthEndpoint.Check(db, CancellationToken.None);
-            Assert.Equal(StatusCodes.Status503ServiceUnavailable, Assert.IsAssignableFrom<IStatusCodeHttpResult>(missingSchema).StatusCode);
+            Assert.Equal(StatusCodes.Status503ServiceUnavailable, Assert.IsType<IStatusCodeHttpResult>(missingSchema, exactMatch: false).StatusCode);
         }
         finally
         {

@@ -85,7 +85,7 @@ public sealed class GraphExternalAccountsTests
     {
         Assert.NotEmpty(handler.Responses);
         foreach (var response in handler.Responses)
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => response.Content.ReadAsStringAsync());
+            await Assert.ThrowsAsync<ObjectDisposedException>(response.Content.ReadAsStringAsync);
     }
 
     private static GraphExternalAccounts Provider(HttpClient http) => new(http, new GraphTestCredential(), new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Entra:Issuer"] = Issuer }).Build());

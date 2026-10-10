@@ -33,7 +33,7 @@ public sealed class GraphCredentialRegistrationTests
     public void LocalCertificateRequiresExplicitTenantAndClient()
     {
         using var host = CreateHost(Environments.Development, new() { ["Entra:Graph:CertificateThumbprint"] = "not-a-certificate" });
-        var error = Assert.Throws<InvalidOperationException>(() => host.Services.GetRequiredService<TokenCredential>());
+        var error = Assert.Throws<InvalidOperationException>(host.Services.GetRequiredService<TokenCredential>);
         Assert.Contains("Entra:Graph:TenantId", error.Message, StringComparison.Ordinal);
     }
 

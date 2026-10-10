@@ -2,6 +2,7 @@
 
 ## [0.1.0-alpha.4] - Unreleased candidate
 
+- Align deployment preparation with merged Terraform ownership and pin the shared App Service workflow with its required read-only Actions permission; preserve SQL execution and runtime-initialization holds.
 - Correct the GitHub Team/static-IP assumption; recommend initial operator-run schema review, revise the Azure subtotal and document later Team private-network automation without changing execution holds.
 - Align the deployment review and offline schema fixture with the approved shared-server/Basic design; document costed network/operator/runner choices while preserving the SQL execution hold.
 - Replace the unshipped dev Container Apps proposal with Linux B1 App Service, VNet SQL service-endpoint integration and direct immutable-image deployment. Verify baked release identity on both health paths and retain explicit image-rollback evidence; no slots or zero-downtime claim.
@@ -12,6 +13,8 @@
 - Pin the shared formatter correction and enable strict CI formatting of the nested solution; workspace/invocation errors no longer become successful warning-only checks.
 - Require explicit deployed Graph credentials; resolve the external-tenant app certificate through HoneyDrunk.Vault with ephemeral private-key loading and version refresh.
 - Document verified dev inventory, tenant/network unknowns, cost assumptions, permission approvals, rollback and outstanding lifecycle/recovery gates. No live deployment is performed.
+- Describe the five Identity-owned SQL tables and all columns, including classification, lifecycle and retention, and name their four existing default constraints without changing the domain model or shared Audit/Outbox tables.
+- Use the SQL Server Sonar analyzer and actual new-code checks, simplify session revocation and erasure completion without changing transaction boundaries, and resolve test/analyzer diagnostics and object-initializer formatting.
 - Add account lifecycle contracts, feature namespaces and SQL Server database project deployment.
 - Require delegated API scope and support certificate-based local Entra integration.
 - Simplify lifecycle cleanup and delivery filtering, fix the test DACPAC filename, and verify caller disposal of Graph test responses.
