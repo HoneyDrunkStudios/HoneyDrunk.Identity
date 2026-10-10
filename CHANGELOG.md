@@ -2,6 +2,7 @@
 
 ## [0.1.0-alpha.4] - Unreleased candidate
 
+- Restrict deployment CLI operations and evidence output to the reviewed dev target/file; import executed Python and offline DacFx/Pester script coverage alongside .NET coverage without changing Sonar gates or enabling SQL publication.
 - Refresh the PR validation pin to the current reviewed shared workflows while retaining strict formatting.
 - Align deployment preparation with merged Terraform ownership and pin the shared App Service workflow with its required read-only Actions permission; preserve SQL execution and runtime-initialization holds.
 - Correct the GitHub Team/static-IP assumption; recommend initial operator-run schema review, revise the Azure subtotal and document later Team private-network automation without changing execution holds.

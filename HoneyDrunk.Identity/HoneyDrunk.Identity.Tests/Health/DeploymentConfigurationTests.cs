@@ -32,7 +32,7 @@ public sealed class DeploymentConfigurationTests
     public void InsecureDeployedOriginIsRejected()
     {
         using var factory = new ConfigurationHost("http://app.example.test");
-        Assert.Throws<InvalidOperationException>(() => factory.CreateClient());
+        Assert.Throws<InvalidOperationException>(factory.CreateClient);
     }
 
     /// <summary>Both health paths identify the serving image, including failed SQL readiness.</summary>

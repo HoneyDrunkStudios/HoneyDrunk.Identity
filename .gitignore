@@ -4,6 +4,8 @@
 **/.expo/
 **/dist/
 **/TestResults/
+**/__pycache__/
+.coverage
 .vs/
 .env
 .env.*
