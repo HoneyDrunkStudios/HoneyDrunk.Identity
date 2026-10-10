@@ -1,0 +1,40 @@
+name: Package Validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package consumer restore
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: HoneyDrunkStudios/HoneyDrunk.Actions
+          path: .github/actions-repo
+          ref: main
+      - uses: ./.github/actions-repo/.github/actions/dotnet/setup
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore locked dependencies
+        run: dotnet restore HoneyDrunk.Identity/HoneyDrunk.Identity.slnx --locked-mode
+      - uses: ./.github/actions-repo/.github/actions/dotnet/pack
+        with:
+          project-path: HoneyDrunk.Identity/HoneyDrunk.Identity.slnx
+          configuration: Release
+          output-directory: ./artifacts/packages
+      - name: Verify isolated package consumer
+        shell: pwsh
+        run: ./scripts/Test-Packages.ps1 -PackageDirectory ./artifacts/packages
+      - uses: actions/upload-artifact@v6
+        with:
+          name: identity-client-candidates
+          path: artifacts/packages/*.nupkg
+          if-no-files-found: error
