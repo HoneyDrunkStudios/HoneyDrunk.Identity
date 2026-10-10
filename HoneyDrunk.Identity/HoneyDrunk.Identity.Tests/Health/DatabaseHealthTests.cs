@@ -37,6 +37,10 @@ public sealed class DatabaseHealthTests(SqlServerFixture sql) : IClassFixture<Sq
             await DatabaseSchema.DeployAsync(db.Database);
             var ready = await DatabaseHealthEndpoint.Check(db, CancellationToken.None);
             Assert.Equal(StatusCodes.Status200OK, Assert.IsType<IStatusCodeHttpResult>(ready, exactMatch: false).StatusCode);
+
+            await db.Database.ExecuteSqlRawAsync("DROP TABLE [dbo].[Subjects]");
+            var missingSchema = await DatabaseHealthEndpoint.Check(db, CancellationToken.None);
+            Assert.Equal(StatusCodes.Status503ServiceUnavailable, Assert.IsType<IStatusCodeHttpResult>(missingSchema, exactMatch: false).StatusCode);
         }
         finally
         {

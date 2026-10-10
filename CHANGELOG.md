@@ -3,6 +3,19 @@
 ## [0.1.0-alpha.4] - Unreleased candidate
 
 - Reconcile lifecycle deliveries with the current consumer registry before transitions and retries, retire removed destinations, and renew capabilities after route changes without touching another account's outbox.
+- Restrict deployment CLI operations and evidence output to the reviewed dev target/file; import executed Python and offline DacFx/Pester script coverage alongside .NET coverage without changing Sonar gates or enabling SQL publication.
+- Refresh the PR validation pin to the current reviewed shared workflows while retaining strict formatting.
+- Align deployment preparation with merged Terraform ownership and pin the shared App Service workflow with its required read-only Actions permission; preserve SQL execution and runtime-initialization holds.
+- Correct the GitHub Team/static-IP assumption; recommend initial operator-run schema review, revise the Azure subtotal and document later Team private-network automation without changing execution holds.
+- Align the deployment review and offline schema fixture with the approved shared-server/Basic design; document costed network/operator/runner choices while preserving the SQL execution hold.
+- Replace the unshipped dev Container Apps proposal with Linux B1 App Service, VNet SQL service-endpoint integration and direct immutable-image deployment. Verify baked release identity on both health paths and retain explicit image-rollback evidence; no slots or zero-downtime claim.
+- Move release orchestration to the shared Actions workflow while retaining Identity-specific validation. Keep provisioning, permissions and SQL execution held.
+- Add an Azure SQL build target and a Script/DeployReport review workflow with separate protected revalidation, artifact verification and drift checks. Startup never applies schema.
+- Revalidate actual generated SQL as well as DeployReport; reproduce equal reports with different ALTER COLUMN SQL using real DacFx models. Disable schema execution until the exact-script/concurrent-DDL boundary is reviewed.
+- Use tenant-only OIDC for SQL identities without subscription selection or ARM grants; verify formatting against the nested solution and correct two whitespace findings.
+- Pin the shared formatter correction and enable strict CI formatting of the nested solution; workspace/invocation errors no longer become successful warning-only checks.
+- Require explicit deployed Graph credentials; resolve the external-tenant app certificate through HoneyDrunk.Vault with ephemeral private-key loading and version refresh.
+- Document verified dev inventory, tenant/network unknowns, cost assumptions, permission approvals, rollback and outstanding lifecycle/recovery gates. No live deployment is performed.
 - Verify consumer lifecycle HTTP routes, owner proofs, confirmation payloads, missing status and authentication-versus-availability failures; use a standard redacted exception snapshot with safe method frames.
 - Configure the Graph base URI with a strict HTTPS Microsoft-host/API-path boundary and no redirects; preserve failure diagnostics through a bounded exception snapshot that removes raw messages, data, database entries and file paths before logging.
 - Describe the five Identity-owned SQL tables and all columns, including classification, lifecycle and retention, and name their four existing default constraints without changing the domain model or shared Audit/Outbox tables.

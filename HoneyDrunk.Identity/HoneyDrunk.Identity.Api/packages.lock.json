@@ -49,6 +49,18 @@
           "Microsoft.Extensions.Azure": "1.14.1"
         }
       },
+      "HoneyDrunk.Vault.Providers.AzureKeyVault": {
+        "type": "Direct",
+        "requested": "[0.8.1, )",
+        "resolved": "0.8.1",
+        "contentHash": "UbOtTNftkPOkmbN1CVOvaS1ggg20KNZTpqgTxRw8NxusetFKV2viVTmnKTEA3QaPaL9TCbq4iRPm+l2zj/1oOg==",
+        "dependencies": {
+          "Azure.Identity": "1.21.0",
+          "Azure.Security.KeyVault.Secrets": "4.11.1",
+          "HoneyDrunk.Vault": "0.8.1",
+          "HoneyDrunk.Vault.Providers.File": "0.8.1"
+        }
+      },
       "Microsoft.AspNetCore.Authentication.JwtBearer": {
         "type": "Direct",
         "requested": "[10.0.12, )",
@@ -289,17 +301,6 @@
           "Microsoft.Azure.AppConfiguration.AspNetCore": "8.6.0",
           "Microsoft.Extensions.Configuration.AzureAppConfiguration": "8.6.0",
           "Microsoft.FeatureManagement.AspNetCore": "4.8.0"
-        }
-      },
-      "HoneyDrunk.Vault.Providers.AzureKeyVault": {
-        "type": "Transitive",
-        "resolved": "0.8.1",
-        "contentHash": "UbOtTNftkPOkmbN1CVOvaS1ggg20KNZTpqgTxRw8NxusetFKV2viVTmnKTEA3QaPaL9TCbq4iRPm+l2zj/1oOg==",
-        "dependencies": {
-          "Azure.Identity": "1.21.0",
-          "Azure.Security.KeyVault.Secrets": "4.11.1",
-          "HoneyDrunk.Vault": "0.8.1",
-          "HoneyDrunk.Vault.Providers.File": "0.8.1"
         }
       },
       "HoneyDrunk.Vault.Providers.File": {
@@ -690,7 +691,7 @@
           "HoneyDrunk.Audit.Data": "[0.2.1, )",
           "HoneyDrunk.Data.EntityFramework": "[0.7.1, )",
           "HoneyDrunk.Data.Outbox": "[0.7.1, )",
-          "HoneyDrunk.Identity.Abstractions": "[0.1.0-alpha.3, )",
+          "HoneyDrunk.Identity.Abstractions": "[0.1.0-alpha.4, )",
           "Microsoft.EntityFrameworkCore.SqlServer": "[10.0.12, )",
           "Ulid": "[1.4.1, )"
         }
@@ -702,7 +703,7 @@
         "type": "Project",
         "dependencies": {
           "HoneyDrunk.Auth": "[0.6.1, )",
-          "HoneyDrunk.Identity.Abstractions": "[0.1.0-alpha.3, )",
+          "HoneyDrunk.Identity.Abstractions": "[0.1.0-alpha.4, )",
           "HoneyDrunk.Kernel": "[0.8.1, )",
           "Microsoft.IdentityModel.Protocols.OpenIdConnect": "[8.23.0, )"
         }
