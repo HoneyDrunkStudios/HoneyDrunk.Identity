@@ -4,13 +4,14 @@ Describe 'First-initialization SQL execution boundary' {
     }
 }
 
-Describe 'Database firewall boundary' {
+Describe 'Azure database metadata boundary' {
     BeforeDiscovery {
         Import-Module "$PSScriptRoot/../../../scripts/IdentityBootstrap.psm1" -Force
     }
     InModuleScope IdentityBootstrap {
         BeforeEach {
             $script:firewallRules = 0
+            $script:eventSessions = 0
             $script:tx = [pscustomobject]@{ Committed = $false; RolledBack = $false; Disposed = $false }
             $script:tx | Add-Member ScriptMethod Commit { $this.Committed = $true }
             $script:tx | Add-Member ScriptMethod Rollback { $this.RolledBack = $true }
@@ -22,7 +23,9 @@ Describe 'Database firewall boundary' {
                 if ($Sql -eq 'SELECT DB_NAME()') { return 'test-db' }
                 if ($Sql -eq 'SELECT @@TRANCOUNT') { return 1 }
                 if ($Sql -eq 'SELECT COUNT(*) FROM sys.database_firewall_rules') { return $script:firewallRules }
+                if ($Sql -eq 'SELECT COUNT(*) FROM sys.database_event_sessions') { return $script:eventSessions }
                 if ($Sql -eq 'raced firewall') { $script:firewallRules = 1 }
+                if ($Sql -eq 'raced event session') { $script:eventSessions = 1 }
                 return 0
             }
         }
@@ -59,8 +62,37 @@ Describe 'Database firewall boundary' {
         }
         It 'does not query the Azure-only catalog on LocalDB' {
             Mock Invoke-BootstrapSql { 3 } -ParameterFilter { $Sql -eq "SELECT SERVERPROPERTY('EngineEdition')" }
-            Assert-BootstrapFirewall $script:connection
-            Should -Invoke Invoke-BootstrapSql -Times 0 -Exactly -ParameterFilter { $Sql -eq 'SELECT COUNT(*) FROM sys.database_firewall_rules' }
+            Assert-BootstrapAzureMetadata $script:connection
+            Should -Invoke Invoke-BootstrapSql -Times 0 -Exactly -ParameterFilter { $Sql -in @('SELECT COUNT(*) FROM sys.database_firewall_rules', 'SELECT COUNT(*) FROM sys.database_event_sessions') }
+        }
+        It 'rejects preexisting database event sessions before schema inspection' {
+            $script:eventSessions = 1
+            { Assert-EmptyBootstrapTarget $script:connection 'test-db' '0x01' } | Should -Throw '*database event session*'
+        }
+        It 'rejects event-session drift before executing a batch' {
+            $script:eventSessions = 1
+            { Invoke-ExactBootstrap $script:connection @('must not execute') } | Should -Throw '*database event session*'
+            $script:tx.RolledBack | Should -BeTrue
+            Should -Invoke Invoke-BootstrapSql -Times 0 -Exactly -ParameterFilter { $Sql -eq 'must not execute' }
+        }
+        It 'rolls back when an event session appears after a batch' {
+            { Invoke-ExactBootstrap $script:connection @('raced event session', 'must not execute') } | Should -Throw '*database event session*'
+            $script:tx.Committed | Should -BeFalse
+            $script:tx.RolledBack | Should -BeTrue
+            $script:tx.Disposed | Should -BeTrue
+            Should -Invoke Invoke-BootstrapSql -Times 0 -Exactly -ParameterFilter { $Sql -eq 'must not execute' }
+        }
+        It 'fails closed on an unreadable event-session catalog' {
+            Mock Invoke-BootstrapSql { throw 'Event catalog access failed' } -ParameterFilter { $Sql -eq 'SELECT COUNT(*) FROM sys.database_event_sessions' }
+            { Invoke-ExactBootstrap $script:connection @('must not execute') } | Should -Throw '*Event catalog access failed*'
+            $script:tx.RolledBack | Should -BeTrue
+        }
+        It 'checks event sessions inside the transaction before and after each batch' {
+            Invoke-ExactBootstrap $script:connection @('safe batch')
+            $script:tx.Committed | Should -BeTrue
+            Should -Invoke Invoke-BootstrapSql -Times 2 -Exactly -ParameterFilter {
+                $Sql -eq 'SELECT COUNT(*) FROM sys.database_event_sessions' -and $Transaction -eq $script:tx
+            }
         }
     }
 }

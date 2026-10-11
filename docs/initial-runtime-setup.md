@@ -55,6 +55,15 @@ between checks. They do not revoke an external access change. Stop and coordinat
 access recovery if a check fails. LocalDB has no such catalog; offline tests cover
 the Azure-specific checks without claiming a live Azure firewall-mutation test.
 
+The same Azure metadata checks reject every database-scoped Extended Events
+session, running or stopped, before planning, under the guard and between execution
+batches. Such sessions can retain tracing configuration beyond initialization.
+Freeze tracing administration during maintenance as well; detection does not remove
+sessions or prevent an administrator from creating and removing one between checks.
+Catalog-read errors abort initialization. LocalDB supports server-scoped sessions
+and lacks this Azure database-scoped catalog, so the event-session rejection,
+rollback and catalog-failure regressions use offline mocks, not live Azure evidence.
+
 ## Runtime credentials and activation
 
 Create a contained external SQL user using the app managed identity's **client

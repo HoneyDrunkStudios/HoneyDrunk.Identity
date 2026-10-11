@@ -95,7 +95,7 @@ function ConvertTo-BootstrapBatches([string]$Script,[string]$Database){
 }
 function Assert-EmptyBootstrapTarget($Connection,[string]$Database,[string]$ApprovedOwnerSid,[switch]$UnderGuard){
  if((Invoke-BootstrapSql $Connection 'SELECT DB_NAME()') -cne $Database){throw 'Connected to wrong database'}
- Assert-BootstrapFirewall $Connection
+ Assert-BootstrapAzureMetadata $Connection
  if($ApprovedOwnerSid -notmatch '^0x(?:[0-9a-fA-F]{2}){1,85}$'){throw 'An independently approved database owner SID is required'}
  $owner=Invoke-BootstrapSql $Connection 'SELECT CONVERT(varchar(172),owner_sid,1) FROM sys.databases WHERE database_id=DB_ID()'
  if($owner -ine $ApprovedOwnerSid){throw 'Database owner differs from the approved identity'}
@@ -131,12 +131,15 @@ SELECT COUNT(*) FROM sys.database_permissions p WHERE NOT (
 function Assert-ZeroBootstrapRows($Connection,[string]$Query,[string]$Reason){
  if((Invoke-BootstrapSql $Connection $Query) -ne 0){throw $Reason}
 }
-function Assert-BootstrapFirewall($Connection,$Transaction=$null){
- # The Azure SQL catalog does not exist on LocalDB. Query errors on Azure must
- # fail closed; a database-level rule can bypass the scoped server firewall.
+function Assert-BootstrapAzureMetadata($Connection,$Transaction=$null){
+ # These Azure SQL catalogs do not exist on LocalDB. Query errors must fail
+ # closed; firewall access and tracing sessions survive schema initialization.
  if((Invoke-BootstrapSql $Connection "SELECT SERVERPROPERTY('EngineEdition')" $Transaction) -eq 5){
   if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.database_firewall_rules' $Transaction) -ne 0){
    throw 'Unexpected database-level firewall rule; coordinate access recovery before initialization'
+  }
+  if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.database_event_sessions' $Transaction) -ne 0){
+   throw 'Unexpected database event session; review tracing before initialization'
   }
  }
 }
@@ -161,10 +164,10 @@ function Exit-BootstrapGuard($Connection){
 function Invoke-ExactBootstrap($Connection,[string[]]$Batches){
  $tx=$Connection.BeginTransaction()
  try {
-  Assert-BootstrapFirewall $Connection $tx
+  Assert-BootstrapAzureMetadata $Connection $tx
   foreach($batch in $Batches){
    Invoke-BootstrapSql $Connection $batch $tx|Out-Null
-   Assert-BootstrapFirewall $Connection $tx
+   Assert-BootstrapAzureMetadata $Connection $tx
   }
   if((Invoke-BootstrapSql $Connection 'SELECT @@TRANCOUNT' $tx) -ne 1){throw 'Script escaped outer transaction boundary'}
   $tx.Commit()
