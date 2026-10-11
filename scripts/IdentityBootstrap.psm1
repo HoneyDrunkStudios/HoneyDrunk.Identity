@@ -86,7 +86,7 @@ function ConvertTo-BootstrapBatches([string]$Script,[string]$Database){
   if($sql.Trim()){Write-Output $sql}
  }
 }
-function Assert-EmptyBootstrapTarget($Connection,[string]$Database){
+function Assert-EmptyBootstrapTarget($Connection,[string]$Database,[switch]$UnderGuard){
  if((Invoke-BootstrapSql $Connection 'SELECT DB_NAME()') -cne $Database){throw 'Connected to wrong database'}
  $objects=Invoke-BootstrapSql $Connection "SELECT COUNT(*) FROM sys.objects WHERE is_ms_shipped=0"
  if($objects -ne 0){throw 'First initialization refuses a nonempty database'}
@@ -107,7 +107,16 @@ SELECT COUNT(*) FROM sys.database_permissions p WHERE NOT (
  if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.database_role_members WHERE NOT (role_principal_id=16384 AND member_principal_id=1)') -ne 0){throw 'Unexpected existing database role membership'}
  if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.types WHERE is_user_defined=1') -ne 0){throw 'Unexpected existing database types'}
  if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.assemblies WHERE is_user_defined=1') -ne 0){throw 'Unexpected existing database assemblies'}
- if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.triggers WHERE parent_class=0') -ne 0){throw 'Existing database trigger requires recovery/review'}
+ foreach($catalog in @('symmetric_keys','asymmetric_keys','certificates','database_scoped_credentials','external_data_sources','external_file_formats','partition_functions','partition_schemes','fulltext_catalogs','fulltext_stoplists','registered_search_property_lists')){
+  if((Invoke-BootstrapSql $Connection "SELECT COUNT(*) FROM sys.$catalog") -ne 0){throw "Unexpected existing database artifacts in $catalog"}
+ }
+ if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.xml_schema_collections WHERE xml_collection_id>1') -ne 0){throw 'Unexpected existing XML schema collections'}
+ $triggerQuery='SELECT COUNT(*) FROM sys.triggers WHERE parent_class=0'
+ if($UnderGuard){
+  if((Invoke-BootstrapSql $Connection "SELECT COUNT(*) FROM sys.triggers WHERE parent_class=0 AND name='__identity_bootstrap_guard' AND is_disabled=0") -ne 1){throw 'Bootstrap guard is not active'}
+  $triggerQuery+=" AND name<>'__identity_bootstrap_guard'"
+ }
+ if((Invoke-BootstrapSql $Connection $triggerQuery) -ne 0){throw 'Existing database trigger requires recovery/review'}
 }
 function Enter-BootstrapGuard($Connection){
  $spid=[int](Invoke-BootstrapSql $Connection 'SELECT @@SPID')

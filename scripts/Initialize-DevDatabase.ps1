@@ -40,6 +40,9 @@ try {
  $reviewedScript=[IO.File]::ReadAllText($scriptPath)
  $batches=@(ConvertTo-BootstrapBatches $reviewedScript $database)
  Enter-BootstrapGuard $connection;$guard=$true
+ # Close the gap between initial inspection and guard acquisition, including
+ # permissions and other artifacts deliberately excluded from DacFx comparison.
+ Assert-EmptyBootstrapTarget $connection $database -UnderGuard
  # Fresh planning is read-only. The guard rejects DDL from every other session,
  # including other administrator sessions, throughout comparison and execution.
  $fresh=Get-BootstrapReview $connectionString $token $packagePath $database

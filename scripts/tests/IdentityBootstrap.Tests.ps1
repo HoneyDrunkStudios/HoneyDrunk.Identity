@@ -66,6 +66,14 @@ Describe 'Initializer approval and cleanup boundary' {
         Should -Invoke Invoke-ExactBootstrap -Times 0 -Exactly
         Should -Invoke Exit-BootstrapGuard -Times 1 -Exactly
     }
+    It 'rechecks emptiness under the guard and refuses a raced permission' {
+        & $initializer -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision
+        Mock Assert-EmptyBootstrapTarget { throw 'Raced permission' } -ParameterFilter { $UnderGuard }
+        { & $initializer -Action Initialize -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision } |
+            Should -Throw '*Raced permission*'
+        Should -Invoke Exit-BootstrapGuard -Times 1 -Exactly
+        Should -Invoke Invoke-ExactBootstrap -Times 0 -Exactly
+    }
     It 'rejects an active app before connecting to SQL' {
         Mock az { $global:LASTEXITCODE = 0; '{"enabled":true,"state":"Running"}' }
         { & $initializer -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision } |

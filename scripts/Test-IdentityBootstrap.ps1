@@ -24,6 +24,7 @@ try {
  $cs=$masterString.Replace('Initial Catalog=master',"Initial Catalog=$name")
  $c=Open-BootstrapConnection $cs '';$other=Open-BootstrapConnection $cs ''
  Assert-EmptyBootstrapTarget $c $name
+ $keyPassword=[guid]::NewGuid().ToString('N')+'a!1'
  foreach($artifact in @(
   @{Create='CREATE SYNONYM dbo.Unreviewed FOR dbo.Missing';Drop='DROP SYNONYM dbo.Unreviewed';Label='synonym'},
   @{Create='CREATE SCHEMA Unreviewed';Drop='DROP SCHEMA Unreviewed';Label='schema'},
@@ -32,7 +33,9 @@ try {
   @{Create='CREATE USER Unreviewed WITHOUT LOGIN';Drop='DROP USER Unreviewed';Label='user'},
   @{Create='GRANT CONNECT TO guest; GRANT SELECT TO guest';Drop='REVOKE SELECT FROM guest; REVOKE CONNECT FROM guest';Label='guest permissions'},
   @{Create='GRANT SELECT TO public';Drop='REVOKE SELECT FROM public';Label='public permissions'},
-  @{Create='ALTER ROLE db_datareader ADD MEMBER guest';Drop='ALTER ROLE db_datareader DROP MEMBER guest';Label='built-in role membership'}
+  @{Create='ALTER ROLE db_datareader ADD MEMBER guest';Drop='ALTER ROLE db_datareader DROP MEMBER guest';Label='built-in role membership'},
+  @{Create="CREATE MASTER KEY ENCRYPTION BY PASSWORD='$keyPassword'; CREATE DATABASE SCOPED CREDENTIAL Unreviewed WITH IDENTITY='fixture', SECRET='$keyPassword'";Drop='DROP DATABASE SCOPED CREDENTIAL Unreviewed; DROP MASTER KEY';Label='secret-bearing database credential'},
+  @{Create="CREATE CERTIFICATE Unreviewed ENCRYPTION BY PASSWORD='$keyPassword' WITH SUBJECT='Disposable test certificate'";Drop='DROP CERTIFICATE Unreviewed';Label='certificate'}
  )){
   Invoke-BootstrapSql $c $artifact.Create|Out-Null
   try {Reject {Assert-EmptyBootstrapTarget $c $name} ("preexisting "+$artifact.Label+" rejected")}
@@ -50,7 +53,16 @@ try {
  Reject {ConvertTo-BootstrapBatches $script 'WrongDatabase'} 'wrong target rejected'
  Reject {ConvertTo-BootstrapBatches ($script+"`n:r unsafe.sql") $name} 'external script include rejected'
  Reject {ConvertTo-BootstrapBatches ($script+"`nGO`nDROP DATABASE [anything];") $name} 'database mutation rejected'
+ # Simulate an administrator granting access after inspection but before locking.
+ Invoke-BootstrapSql $other 'GRANT SELECT TO guest'|Out-Null
  Enter-BootstrapGuard $c;$guard=$true
+ Reject {Assert-EmptyBootstrapTarget $c $name -UnderGuard} 'permission race before guard rejected'
+ Exit-BootstrapGuard $c;$guard=$false
+ Invoke-BootstrapSql $other 'REVOKE SELECT FROM guest'|Out-Null
+ $c.Dispose();$c=Open-BootstrapConnection $cs ''
+ Enter-BootstrapGuard $c;$guard=$true
+ Assert-EmptyBootstrapTarget $c $name -UnderGuard
+ Reject {Invoke-BootstrapSql $other 'GRANT SELECT TO guest'} 'competing permission grant blocked'
  $fresh=Get-BootstrapReview $cs '' $packagePath $name
  if($fresh.Script -cne $script -or $fresh.Report -cne $review.Report){throw 'Maintenance guard changed the generated plan'}
  $passed.Add('fresh planning under guard preserves exact SQL and report')
