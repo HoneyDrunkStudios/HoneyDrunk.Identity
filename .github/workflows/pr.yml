@@ -65,7 +65,7 @@ jobs:
           Save-Module Pester -RequiredVersion 5.7.1 -Path $modules -Repository PSGallery -Force
           Import-Module (Join-Path $modules 'Pester/5.7.1/Pester.psd1')
           $config = New-PesterConfiguration
-          $config.Run.Path = 'scripts/tests/DatabaseReview.Tests.ps1'
+          $config.Run.Path = 'HoneyDrunk.Identity/HoneyDrunk.Identity.Tests/ScriptTests/DatabaseReview.Tests.ps1'
           $config.Run.Exit = $true
           $config.CodeCoverage.Enabled = $true
           $config.CodeCoverage.Path = @('scripts/Review-DevDatabase.ps1', 'scripts/Test-DatabaseReview.ps1')
@@ -112,7 +112,7 @@ jobs:
           Save-Module Pester -RequiredVersion 5.7.1 -Path $modules -Repository PSGallery -Force
           Import-Module (Join-Path $modules 'Pester/5.7.1/Pester.psd1')
           $config = New-PesterConfiguration
-          $config.Run.Path = 'scripts/tests/IdentityBootstrap.Tests.ps1'
+          $config.Run.Path = 'HoneyDrunk.Identity/HoneyDrunk.Identity.Tests/ScriptTests/IdentityBootstrap.Tests.ps1'
           $config.Run.Exit = $true
           $config.CodeCoverage.Enabled = $true
           $config.CodeCoverage.Path = @('scripts/IdentityBootstrap.psm1', 'scripts/Initialize-DevDatabase.ps1', 'scripts/Test-IdentityBootstrap.ps1')

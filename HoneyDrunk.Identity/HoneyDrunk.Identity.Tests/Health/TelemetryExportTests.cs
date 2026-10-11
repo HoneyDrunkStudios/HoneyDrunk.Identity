@@ -19,9 +19,12 @@ namespace HoneyDrunk.Identity.Tests.Health;
 public sealed class TelemetryExportTests(ITestOutputHelper output)
 {
     /// <summary>All signals reach their distinct Pulse path with HoneyDrunk resource identity.</summary>
+    /// <param name="basePath">Collector path with or without a trailing separator.</param>
     /// <returns>The asynchronous verification.</returns>
-    [Fact]
-    public async Task ExportsAllSignalsToDistinctHttpPaths()
+    [Theory]
+    [InlineData("otlp")]
+    [InlineData("otlp/")]
+    public async Task ExportsAllSignalsToDistinctHttpPaths(string basePath)
     {
         using var portReservation = new TcpListener(IPAddress.Loopback, 0);
         portReservation.Start();
@@ -59,7 +62,7 @@ public sealed class TelemetryExportTests(ITestOutputHelper output)
         {
             var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["OTEL_EXPORTER_OTLP_ENDPOINT"] = $"http://localhost:{port}/otlp/",
+                ["OTEL_EXPORTER_OTLP_ENDPOINT"] = $"http://localhost:{port}/{basePath}",
             }).Build();
             var services = new ServiceCollection();
             services.AddLogging();

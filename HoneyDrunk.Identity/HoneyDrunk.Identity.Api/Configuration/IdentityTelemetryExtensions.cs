@@ -20,9 +20,7 @@ public static class IdentityTelemetryExtensions
     {
         var endpoint = configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]
             ?? throw new InvalidOperationException("Configure OTEL_EXPORTER_OTLP_ENDPOINT for the deployed telemetry collector.");
-        var endpointBuilder = new UriBuilder(new Uri(endpoint, UriKind.Absolute));
-        endpointBuilder.Path = endpointBuilder.Path.TrimEnd('/') + '/';
-        var baseUri = endpointBuilder.Uri;
+        var baseUri = new Uri(endpoint, UriKind.Absolute);
 
         // The pinned HoneyDrunk exporter assigns one literal URL to all signals.
         // Retain its resource conventions; UseOtlpExporter supplies the signal paths.

@@ -1,15 +1,15 @@
 Describe 'First-initialization SQL execution boundary' {
     It 'rejects competing DDL, rolls back partial work and commits the exact generated schema' {
-        & "$PSScriptRoot/../Test-IdentityBootstrap.ps1"
+        & "$PSScriptRoot/../../../scripts/Test-IdentityBootstrap.ps1"
     }
 }
 
 Describe 'Initializer approval and cleanup boundary' {
     BeforeAll {
-        Import-Module "$PSScriptRoot/../IdentityBootstrap.psm1" -Force
+        Import-Module "$PSScriptRoot/../../../scripts/IdentityBootstrap.psm1" -Force
         # This harness must never invoke the real Azure CLI.
         function az { throw 'Unmocked Azure CLI call in offline test' }
-        $initializer = "$PSScriptRoot/../Initialize-DevDatabase.ps1"
+        $initializer = "$PSScriptRoot/../../../scripts/Initialize-DevDatabase.ps1"
         $revision = 'a' * 40
     }
     BeforeEach {
