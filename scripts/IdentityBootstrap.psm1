@@ -94,6 +94,17 @@ function Assert-EmptyBootstrapTarget($Connection,[string]$Database){
  if($principals -ne 0){throw 'Unexpected existing database users; review all writers first'}
  $schemas=Invoke-BootstrapSql $Connection "SELECT COUNT(*) FROM sys.schemas WHERE name NOT IN ('dbo','guest','INFORMATION_SCHEMA','sys','db_owner','db_accessadmin','db_securityadmin','db_ddladmin','db_backupoperator','db_datareader','db_datawriter','db_denydatareader','db_denydatawriter')"
  if($schemas -ne 0){throw 'Unexpected existing database schemas'}
+ # Permit only fresh-database grants; DacFx deliberately does not overwrite permissions.
+ $permissions=Invoke-BootstrapSql $Connection @"
+SELECT COUNT(*) FROM sys.database_permissions p WHERE NOT (
+ p.grantor_principal_id=1 AND p.state='G' AND p.minor_id=0 AND (
+  (p.class=0 AND p.major_id=0 AND p.grantee_principal_id=1 AND p.type='CO') OR
+  (p.class=0 AND p.major_id=0 AND p.grantee_principal_id=0 AND p.type IN ('VWCK','VWCM')) OR
+  (p.class=1 AND p.major_id<0 AND p.grantee_principal_id=0 AND p.type='SL')
+ ))
+"@
+ if($permissions -ne 0){throw 'Unexpected existing database permissions'}
+ if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.database_role_members WHERE NOT (role_principal_id=16384 AND member_principal_id=1)') -ne 0){throw 'Unexpected existing database role membership'}
  if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.types WHERE is_user_defined=1') -ne 0){throw 'Unexpected existing database types'}
  if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.assemblies WHERE is_user_defined=1') -ne 0){throw 'Unexpected existing database assemblies'}
  if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.triggers WHERE parent_class=0') -ne 0){throw 'Existing database trigger requires recovery/review'}

@@ -11,11 +11,12 @@ using System.Diagnostics.Metrics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using Xunit.Abstractions;
 
 namespace HoneyDrunk.Identity.Tests.Health;
 
 /// <summary>Exercises actual protobuf exports through the application's registration.</summary>
-public sealed class TelemetryExportTests
+public sealed class TelemetryExportTests(ITestOutputHelper output)
 {
     /// <summary>All signals reach their distinct Pulse path with HoneyDrunk resource identity.</summary>
     /// <returns>The asynchronous verification.</returns>
@@ -45,11 +46,13 @@ public sealed class TelemetryExportTests
                     context.Response.Close();
                 }
             }
-            catch (HttpListenerException) when (!listener.IsListening)
+            catch (HttpListenerException error) when (!listener.IsListening)
             {
+                output.WriteLine($"Receiver stopped during test cleanup: {error.Message}");
             }
-            catch (ObjectDisposedException) when (!listener.IsListening)
+            catch (ObjectDisposedException error) when (!listener.IsListening)
             {
+                output.WriteLine($"Receiver disposed during test cleanup: {error.Message}");
             }
         });
         try

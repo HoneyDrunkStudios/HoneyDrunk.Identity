@@ -29,7 +29,10 @@ try {
   @{Create='CREATE SCHEMA Unreviewed';Drop='DROP SCHEMA Unreviewed';Label='schema'},
   @{Create='CREATE TYPE dbo.Unreviewed FROM int';Drop='DROP TYPE dbo.Unreviewed';Label='type'},
   @{Create='CREATE ROLE Unreviewed';Drop='DROP ROLE Unreviewed';Label='role'},
-  @{Create='CREATE USER Unreviewed WITHOUT LOGIN';Drop='DROP USER Unreviewed';Label='user'}
+  @{Create='CREATE USER Unreviewed WITHOUT LOGIN';Drop='DROP USER Unreviewed';Label='user'},
+  @{Create='GRANT CONNECT TO guest; GRANT SELECT TO guest';Drop='REVOKE SELECT FROM guest; REVOKE CONNECT FROM guest';Label='guest permissions'},
+  @{Create='GRANT SELECT TO public';Drop='REVOKE SELECT FROM public';Label='public permissions'},
+  @{Create='ALTER ROLE db_datareader ADD MEMBER guest';Drop='ALTER ROLE db_datareader DROP MEMBER guest';Label='built-in role membership'}
  )){
   Invoke-BootstrapSql $c $artifact.Create|Out-Null
   try {Reject {Assert-EmptyBootstrapTarget $c $name} ("preexisting "+$artifact.Label+" rejected")}
