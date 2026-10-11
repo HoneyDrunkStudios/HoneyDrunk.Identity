@@ -95,6 +95,7 @@ function ConvertTo-BootstrapBatches([string]$Script,[string]$Database){
 }
 function Assert-EmptyBootstrapTarget($Connection,[string]$Database,[switch]$UnderGuard){
  if((Invoke-BootstrapSql $Connection 'SELECT DB_NAME()') -cne $Database){throw 'Connected to wrong database'}
+ Assert-BootstrapFirewall $Connection
  Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.objects WHERE is_ms_shipped=0' 'First initialization refuses a nonempty database'
  Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.database_principals WHERE principal_id>4 AND is_fixed_role=0;' 'Unexpected existing database users; review all writers first'
  Assert-ZeroBootstrapRows $Connection "SELECT COUNT(*) FROM sys.schemas WHERE name NOT IN ('dbo','guest','INFORMATION_SCHEMA','sys','db_owner','db_accessadmin','db_securityadmin','db_ddladmin','db_backupoperator','db_datareader','db_datawriter','db_denydatareader','db_denydatawriter')" 'Unexpected existing database schemas'
@@ -125,6 +126,15 @@ SELECT COUNT(*) FROM sys.database_permissions p WHERE NOT (
 function Assert-ZeroBootstrapRows($Connection,[string]$Query,[string]$Reason){
  if((Invoke-BootstrapSql $Connection $Query) -ne 0){throw $Reason}
 }
+function Assert-BootstrapFirewall($Connection,$Transaction=$null){
+ # The Azure SQL catalog does not exist on LocalDB. Query errors on Azure must
+ # fail closed; a database-level rule can bypass the scoped server firewall.
+ if((Invoke-BootstrapSql $Connection "SELECT SERVERPROPERTY('EngineEdition')" $Transaction) -eq 5){
+  if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.database_firewall_rules' $Transaction) -ne 0){
+   throw 'Unexpected database-level firewall rule; coordinate access recovery before initialization'
+  }
+ }
+}
 function Enter-BootstrapGuard($Connection){
  $spid=[int](Invoke-BootstrapSql $Connection 'SELECT @@SPID')
  $nonce=[guid]::NewGuid().ToString()
@@ -146,7 +156,11 @@ function Exit-BootstrapGuard($Connection){
 function Invoke-ExactBootstrap($Connection,[string[]]$Batches){
  $tx=$Connection.BeginTransaction()
  try {
-  foreach($batch in $Batches){Invoke-BootstrapSql $Connection $batch $tx|Out-Null}
+  Assert-BootstrapFirewall $Connection $tx
+  foreach($batch in $Batches){
+   Invoke-BootstrapSql $Connection $batch $tx|Out-Null
+   Assert-BootstrapFirewall $Connection $tx
+  }
   if((Invoke-BootstrapSql $Connection 'SELECT @@TRANCOUNT' $tx) -ne 1){throw 'Script escaped outer transaction boundary'}
   $tx.Commit()
  }catch{

@@ -4,6 +4,67 @@ Describe 'First-initialization SQL execution boundary' {
     }
 }
 
+Describe 'Database firewall boundary' {
+    BeforeDiscovery {
+        Import-Module "$PSScriptRoot/../../../scripts/IdentityBootstrap.psm1" -Force
+    }
+    InModuleScope IdentityBootstrap {
+        BeforeEach {
+            $script:firewallRules = 0
+            $script:tx = [pscustomobject]@{ Committed = $false; RolledBack = $false; Disposed = $false }
+            $script:tx | Add-Member ScriptMethod Commit { $this.Committed = $true }
+            $script:tx | Add-Member ScriptMethod Rollback { $this.RolledBack = $true }
+            $script:tx | Add-Member ScriptMethod Dispose { $this.Disposed = $true }
+            $script:connection = [pscustomobject]@{ Transaction = $script:tx }
+            $script:connection | Add-Member ScriptMethod BeginTransaction { $this.Transaction }
+            Mock Invoke-BootstrapSql {
+                if ($Sql -eq "SELECT SERVERPROPERTY('EngineEdition')") { return 5 }
+                if ($Sql -eq 'SELECT DB_NAME()') { return 'test-db' }
+                if ($Sql -eq 'SELECT @@TRANCOUNT') { return 1 }
+                if ($Sql -eq 'SELECT COUNT(*) FROM sys.database_firewall_rules') { return $script:firewallRules }
+                if ($Sql -eq 'raced firewall') { $script:firewallRules = 1 }
+                return 0
+            }
+        }
+        It 'rejects existing Azure database firewall access before schema inspection' {
+            $script:firewallRules = 1
+            { Assert-EmptyBootstrapTarget $script:connection 'test-db' } | Should -Throw '*database-level firewall rule*'
+        }
+        It 'rejects a firewall rule that appears after a deployment batch and rolls back' {
+            { Invoke-ExactBootstrap $script:connection @('raced firewall', 'must not execute') } | Should -Throw '*database-level firewall rule*'
+            $script:tx.Committed | Should -BeFalse
+            $script:tx.RolledBack | Should -BeTrue
+            $script:tx.Disposed | Should -BeTrue
+            Should -Invoke Invoke-BootstrapSql -Times 0 -Exactly -ParameterFilter { $Sql -eq 'must not execute' }
+        }
+        It 'rejects firewall drift before the first deployment batch' {
+            $script:firewallRules = 1
+            { Invoke-ExactBootstrap $script:connection @('must not execute') } | Should -Throw '*database-level firewall rule*'
+            $script:tx.Committed | Should -BeFalse
+            $script:tx.RolledBack | Should -BeTrue
+            Should -Invoke Invoke-BootstrapSql -Times 0 -Exactly -ParameterFilter { $Sql -eq 'must not execute' }
+        }
+        It 'fails closed on an unreadable Azure firewall catalog' {
+            Mock Invoke-BootstrapSql { throw 'Catalog access failed' } -ParameterFilter { $Sql -eq 'SELECT COUNT(*) FROM sys.database_firewall_rules' }
+            { Invoke-ExactBootstrap $script:connection @('must not execute') } | Should -Throw '*Catalog access failed*'
+            $script:tx.RolledBack | Should -BeTrue
+        }
+        It 'commits an Azure batch only after transactional firewall checks' {
+            Invoke-ExactBootstrap $script:connection @('safe batch')
+            $script:tx.Committed | Should -BeTrue
+            $script:tx.RolledBack | Should -BeFalse
+            Should -Invoke Invoke-BootstrapSql -Times 2 -Exactly -ParameterFilter {
+                $Sql -eq 'SELECT COUNT(*) FROM sys.database_firewall_rules' -and $Transaction -eq $script:tx
+            }
+        }
+        It 'does not query the Azure-only catalog on LocalDB' {
+            Mock Invoke-BootstrapSql { 3 } -ParameterFilter { $Sql -eq "SELECT SERVERPROPERTY('EngineEdition')" }
+            Assert-BootstrapFirewall $script:connection
+            Should -Invoke Invoke-BootstrapSql -Times 0 -Exactly -ParameterFilter { $Sql -eq 'SELECT COUNT(*) FROM sys.database_firewall_rules' }
+        }
+    }
+}
+
 Describe 'Initializer approval and cleanup boundary' {
     BeforeAll {
         Import-Module "$PSScriptRoot/../../../scripts/IdentityBootstrap.psm1" -Force

@@ -2,6 +2,8 @@
 
 ## [0.1.0-alpha.4] - Unreleased candidate
 
+- Refuse Azure SQL database-level firewall rules during first initialization, recheck between execution batches and roll back on detected access drift; document the administrator firewall freeze and detection limits.
+
 - Route Identity traces, metrics and logs to distinct Pulse HTTP/protobuf endpoints with an actual transport regression test.
 - Add the bounded empty-dev database initializer used for the first Central US release, with exact-artifact checks, a DDL maintenance guard, atomic execution and reproducible LocalDB rollback/competing-writer tests in CI. The general schema publisher remains disabled.
 - Document the deployed runtime, managed-identity permissions, certificate rotation and remaining recovery/release-automation work.

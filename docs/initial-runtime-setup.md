@@ -38,6 +38,17 @@ remains, inspect transaction/schema state and coordinate recovery before removin
 it. Never rerun initialization against an existing schema. Local rollback and
 competing-DDL tests do not establish Azure point-in-time recovery.
 
+Freeze database firewall administration for the entire maintenance window too.
+Azure SQL database-level firewall rules grant access independently of the server
+rules. Initialization rejects any existing database rule before planning and under
+the guard, then rechecks inside the transaction before execution and after every
+batch. A detected rule aborts/rolls back schema work; catalog-read errors fail
+closed. Firewall procedures are not protected by the DDL trigger: these checks
+detect persistent changes, not a rule another administrator adds and removes
+between checks. They do not revoke an external access change. Stop and coordinate
+access recovery if a check fails. LocalDB has no such catalog; offline tests cover
+the Azure-specific checks without claiming a live Azure firewall-mutation test.
+
 ## Runtime credentials and activation
 
 Create a contained external SQL user using the app managed identity's **client
