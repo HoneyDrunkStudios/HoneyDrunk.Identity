@@ -64,13 +64,37 @@ def convert(reports, output, root):
     ET.ElementTree(result).write(output, encoding='utf-8', xml_declaration=True)
 
 
+def merge_generic(reports, output):
+    result = ET.Element('coverage', version='1')
+    seen = set()
+    for report in reports:
+        document = ET.parse(report).getroot()
+        if document.tag != 'coverage' or document.get('version') != '1':
+            raise ValueError('Expected Sonar generic coverage version 1')
+        for item in document:
+            path = item.get('path', '')
+            if item.tag != 'file' or not path or path in seen:
+                raise ValueError('Coverage files must have distinct source paths')
+            seen.add(path)
+            result.append(item)
+    if not seen:
+        raise ValueError('No measured coverage files to merge')
+    output.parent.mkdir(parents=True, exist_ok=True)
+    ET.indent(result)
+    ET.ElementTree(result).write(output, encoding='utf-8', xml_declaration=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path.cwd())
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--generic', action='store_true', help='Merge disjoint already-converted reports')
     parser.add_argument('reports', type=Path, nargs='+')
     args = parser.parse_args()
-    convert(args.reports, args.output, args.root)
+    if args.generic:
+        merge_generic(args.reports, args.output)
+    else:
+        convert(args.reports, args.output, args.root)
 
 
 if __name__ == '__main__':

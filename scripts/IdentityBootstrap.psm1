@@ -88,10 +88,14 @@ function ConvertTo-BootstrapBatches([string]$Script,[string]$Database){
 }
 function Assert-EmptyBootstrapTarget($Connection,[string]$Database){
  if((Invoke-BootstrapSql $Connection 'SELECT DB_NAME()') -cne $Database){throw 'Connected to wrong database'}
- $objects=Invoke-BootstrapSql $Connection "SELECT COUNT(*) FROM sys.objects WHERE is_ms_shipped=0 AND type IN ('U','V','P','FN','IF','TF','SO')"
+ $objects=Invoke-BootstrapSql $Connection "SELECT COUNT(*) FROM sys.objects WHERE is_ms_shipped=0"
  if($objects -ne 0){throw 'First initialization refuses a nonempty database'}
- $principals=Invoke-BootstrapSql $Connection "SELECT COUNT(*) FROM sys.database_principals WHERE principal_id>4 AND type IN ('S','U','G','E','X') AND name NOT LIKE '##%';"
+ $principals=Invoke-BootstrapSql $Connection "SELECT COUNT(*) FROM sys.database_principals WHERE principal_id>4 AND is_fixed_role=0;"
  if($principals -ne 0){throw 'Unexpected existing database users; review all writers first'}
+ $schemas=Invoke-BootstrapSql $Connection "SELECT COUNT(*) FROM sys.schemas WHERE name NOT IN ('dbo','guest','INFORMATION_SCHEMA','sys','db_owner','db_accessadmin','db_securityadmin','db_ddladmin','db_backupoperator','db_datareader','db_datawriter','db_denydatareader','db_denydatawriter')"
+ if($schemas -ne 0){throw 'Unexpected existing database schemas'}
+ if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.types WHERE is_user_defined=1') -ne 0){throw 'Unexpected existing database types'}
+ if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.assemblies WHERE is_user_defined=1') -ne 0){throw 'Unexpected existing database assemblies'}
  if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.triggers WHERE parent_class=0') -ne 0){throw 'Existing database trigger requires recovery/review'}
 }
 function Enter-BootstrapGuard($Connection){

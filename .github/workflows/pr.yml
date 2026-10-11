@@ -141,6 +141,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@v7
         if: github.event_name == 'pull_request'
         with:
@@ -154,6 +157,8 @@ jobs:
         with:
           name: bootstrap-coverage
           path: TestResults/bootstrap
+      - name: Merge measured script coverage for the shared scanner
+        run: python scripts/convert_script_coverage.py --generic --output TestResults/script-coverage.xml TestResults/scripts/script-coverage.xml TestResults/bootstrap/bootstrap-coverage.xml
       - uses: actions/upload-artifact@v6
         with:
           name: sonar-coverage
@@ -190,7 +195,7 @@ jobs:
       sonar-project-key: 'honeydrunkstudios_HoneyDrunk.Identity'
       sonar-tsql: true
       coverage-artifact-name: 'sonar-coverage'
-      generic-coverage-report-path: 'TestResults/scripts/script-coverage.xml,TestResults/bootstrap/bootstrap-coverage.xml'
+      generic-coverage-report-path: 'TestResults/script-coverage.xml'
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
       github-token: ${{ secrets.GITHUB_TOKEN }}

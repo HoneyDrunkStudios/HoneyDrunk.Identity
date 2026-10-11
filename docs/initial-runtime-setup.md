@@ -63,6 +63,8 @@ Identity retains HoneyDrunk resource conventions and instrumentation, and uses
 OpenTelemetry's cross-signal HTTP/protobuf exporter to append `v1/traces`,
 `v1/metrics` and `v1/logs`. The pinned HoneyDrunk exporter assigns a literal URL
 to each signal and cannot route this receiver correctly by configuration alone.
+The checked-in Development endpoint uses the standard HTTP receiver at
+`http://localhost:4318`; collector overrides must also select an HTTP receiver.
 The transport test sends real protobuf for all three signals to a loopback
 receiver; it does not claim remote dashboard retention.
 

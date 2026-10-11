@@ -24,6 +24,18 @@ try {
  $cs=$masterString.Replace('Initial Catalog=master',"Initial Catalog=$name")
  $c=Open-BootstrapConnection $cs '';$other=Open-BootstrapConnection $cs ''
  Assert-EmptyBootstrapTarget $c $name
+ foreach($artifact in @(
+  @{Create='CREATE SYNONYM dbo.Unreviewed FOR dbo.Missing';Drop='DROP SYNONYM dbo.Unreviewed';Label='synonym'},
+  @{Create='CREATE SCHEMA Unreviewed';Drop='DROP SCHEMA Unreviewed';Label='schema'},
+  @{Create='CREATE TYPE dbo.Unreviewed FROM int';Drop='DROP TYPE dbo.Unreviewed';Label='type'},
+  @{Create='CREATE ROLE Unreviewed';Drop='DROP ROLE Unreviewed';Label='role'},
+  @{Create='CREATE USER Unreviewed WITHOUT LOGIN';Drop='DROP USER Unreviewed';Label='user'}
+ )){
+  Invoke-BootstrapSql $c $artifact.Create|Out-Null
+  try {Reject {Assert-EmptyBootstrapTarget $c $name} ("preexisting "+$artifact.Label+" rejected")}
+  finally {Invoke-BootstrapSql $c $artifact.Drop|Out-Null}
+  Assert-EmptyBootstrapTarget $c $name
+ }
  $packagePath=(Resolve-Path -LiteralPath $Package).Path
  $review=Get-BootstrapReview $cs '' $packagePath $name
  $script=$review.Script
