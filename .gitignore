@@ -21,3 +21,6 @@ dependency-audit.json
 # Visual Studio per-user state
 *.user
 *.suo
+
+# Private operator-generated deployment records
+/deployment-evidence/

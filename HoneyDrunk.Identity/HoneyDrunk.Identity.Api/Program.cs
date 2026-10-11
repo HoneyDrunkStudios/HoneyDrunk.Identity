@@ -16,7 +16,6 @@ using HoneyDrunk.Identity.Providers.Entra.Configuration;
 using HoneyDrunk.Kernel.Abstractions.Identity;
 using HoneyDrunk.Kernel.Hosting;
 using HoneyDrunk.Kernel.Telemetry;
-using HoneyDrunk.Telemetry.OpenTelemetry.Extensions;
 using HoneyDrunk.Vault.Providers.AzureKeyVault.Extensions;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -43,14 +42,7 @@ builder.Services.Configure<LifecycleOptions>(builder.Configuration.GetSection("L
 builder.Services.AddHoneyDrunkTelemetry();
 if (!builder.Environment.IsEnvironment("Testing"))
 {
-    builder.Services.AddHoneyDrunkOpenTelemetry(options =>
-    {
-        options.ServiceName = "honeydrunk-identity";
-        options.Environment = builder.Environment.EnvironmentName;
-        options.OtlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]
-            ?? throw new InvalidOperationException("Configure OTEL_EXPORTER_OTLP_ENDPOINT for the deployed telemetry collector.");
-        options.AdditionalActivitySources.Add("HoneyDrunk.Data");
-    });
+    builder.Services.AddIdentityTelemetry(builder.Configuration, builder.Environment.EnvironmentName);
 }
 
 builder.Services.AddGraphCredential(builder.Configuration, builder.Environment);

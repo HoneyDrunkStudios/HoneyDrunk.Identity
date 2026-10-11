@@ -81,11 +81,60 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  bootstrap-tests:
+    name: First-initialization SQL tests
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Build schema and measure real LocalDB tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet tool restore
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $project = 'HoneyDrunk.Identity/HoneyDrunk.Identity.Database/HoneyDrunk.Identity.Database.sqlproj'
+          dotnet restore $project --locked-mode
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet build $project -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          sqllocaldb create MSSQLLocalDB -s
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $modules = Join-Path $env:RUNNER_TEMP 'identity-bootstrap-modules'
+          Save-Module Pester -RequiredVersion 5.7.1 -Path $modules -Repository PSGallery -Force
+          Import-Module (Join-Path $modules 'Pester/5.7.1/Pester.psd1')
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'scripts/tests/IdentityBootstrap.Tests.ps1'
+          $config.Run.Exit = $true
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.Path = @('scripts/IdentityBootstrap.psm1', 'scripts/Initialize-DevDatabase.ps1', 'scripts/Test-IdentityBootstrap.ps1')
+          $config.CodeCoverage.OutputFormat = 'Cobertura'
+          $config.CodeCoverage.OutputPath = 'TestResults/bootstrap.xml'
+          Invoke-Pester -Configuration $config
+      - name: Convert measured coverage on its source platform
+        run: python scripts/convert_script_coverage.py --output TestResults/bootstrap-coverage.xml TestResults/bootstrap.xml
+      - uses: actions/upload-artifact@v6
+        with:
+          name: bootstrap-coverage
+          path: |
+            TestResults/bootstrap-coverage.xml
+            TestResults/bootstrap-executor-tests.json
+          if-no-files-found: error
+          retention-days: 7
+
   coverage-reports:
     name: Assemble measured coverage reports
-    needs: [pr-core, script-coverage]
+    needs: [pr-core, script-coverage, bootstrap-tests]
     if: |
-      always() && needs.script-coverage.result == 'success' && (
+      always() && needs.script-coverage.result == 'success' && needs.bootstrap-tests.result == 'success' && (
         (github.event_name == 'pull_request' && needs.pr-core.result == 'success') ||
         (github.event_name == 'push' && github.ref == 'refs/heads/main')
       )
@@ -101,6 +150,10 @@ jobs:
         with:
           name: script-coverage
           path: TestResults/scripts
+      - uses: actions/download-artifact@v7
+        with:
+          name: bootstrap-coverage
+          path: TestResults/bootstrap
       - uses: actions/upload-artifact@v6
         with:
           name: sonar-coverage
@@ -137,7 +190,7 @@ jobs:
       sonar-project-key: 'honeydrunkstudios_HoneyDrunk.Identity'
       sonar-tsql: true
       coverage-artifact-name: 'sonar-coverage'
-      generic-coverage-report-path: 'TestResults/scripts/script-coverage.xml'
+      generic-coverage-report-path: 'TestResults/scripts/script-coverage.xml,TestResults/bootstrap/bootstrap-coverage.xml'
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
       github-token: ${{ secrets.GITHUB_TOKEN }}
