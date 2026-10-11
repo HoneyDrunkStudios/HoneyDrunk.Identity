@@ -65,6 +65,49 @@ Describe 'Azure database metadata boundary' {
             Assert-BootstrapAzureMetadata $script:connection
             Should -Invoke Invoke-BootstrapSql -Times 0 -Exactly -ParameterFilter { $Sql -in @('SELECT COUNT(*) FROM sys.database_firewall_rules', 'SELECT COUNT(*) FROM sys.database_event_sessions') }
         }
+        $overrideCases = @(
+            @{ Query = 'SELECT COUNT(*) FROM sys.query_store_query_hints' }
+            @{ Query = 'SELECT COUNT(*) FROM sys.query_store_plan WHERE is_forced_plan=1' }
+            @{ Query = 'SELECT COUNT(*) FROM sys.plan_guides' }
+        )
+        It 'rejects a persisted override before planning: <Query>' -ForEach $overrideCases {
+            $script:overrideQuery = $Query
+            Mock Invoke-BootstrapSql { 1 } -ParameterFilter { $Sql -eq $script:overrideQuery }
+            { Assert-EmptyBootstrapTarget $script:connection 'test-db' '0x01' } | Should -Throw '*persisted query override*'
+        }
+        It 'rejects a persisted override before executing: <Query>' -ForEach $overrideCases {
+            $script:overrideQuery = $Query
+            Mock Invoke-BootstrapSql { 1 } -ParameterFilter { $Sql -eq $script:overrideQuery }
+            { Invoke-ExactBootstrap $script:connection @('must not execute') } | Should -Throw '*persisted query override*'
+            $script:tx.Committed | Should -BeFalse
+            $script:tx.RolledBack | Should -BeTrue
+            Should -Invoke Invoke-BootstrapSql -Times 0 -Exactly -ParameterFilter { $Sql -eq 'must not execute' }
+        }
+        It 'rolls back override drift after a batch: <Query>' -ForEach $overrideCases {
+            $script:overrideQuery = $Query
+            $script:overrideCount = 0
+            Mock Invoke-BootstrapSql { $script:overrideCount } -ParameterFilter { $Sql -eq $script:overrideQuery }
+            Mock Invoke-BootstrapSql { $script:overrideCount = 1 } -ParameterFilter { $Sql -eq 'raced override' }
+            { Invoke-ExactBootstrap $script:connection @('raced override', 'must not execute') } | Should -Throw '*persisted query override*'
+            $script:tx.Committed | Should -BeFalse
+            $script:tx.RolledBack | Should -BeTrue
+            $script:tx.Disposed | Should -BeTrue
+            Should -Invoke Invoke-BootstrapSql -Times 0 -Exactly -ParameterFilter { $Sql -eq 'must not execute' }
+        }
+        It 'fails closed on an unreadable override catalog: <Query>' -ForEach $overrideCases {
+            $script:overrideQuery = $Query
+            Mock Invoke-BootstrapSql { throw 'Tuning catalog access failed' } -ParameterFilter { $Sql -eq $script:overrideQuery }
+            { Invoke-ExactBootstrap $script:connection @('must not execute') } | Should -Throw '*Tuning catalog access failed*'
+            $script:tx.RolledBack | Should -BeTrue
+        }
+        It 'checks tuning inside the transaction before and after each batch: <Query>' -ForEach $overrideCases {
+            $script:overrideQuery = $Query
+            Invoke-ExactBootstrap $script:connection @('safe batch')
+            $script:tx.Committed | Should -BeTrue
+            Should -Invoke Invoke-BootstrapSql -Times 2 -Exactly -ParameterFilter {
+                $Sql -eq $script:overrideQuery -and $Transaction -eq $script:tx
+            }
+        }
         It 'rejects preexisting database event sessions before schema inspection' {
             $script:eventSessions = 1
             { Assert-EmptyBootstrapTarget $script:connection 'test-db' '0x01' } | Should -Throw '*database event session*'

@@ -2,6 +2,8 @@
 
 ## [0.1.0-alpha.4] - Unreleased candidate
 
+- Refuse persisted Query Store hints, forced plans and plan guides throughout Azure database initialization; preserve ordinary query history and cover tuning drift/rollback with offline tests.
+
 - Reject Azure database-scoped Extended Events sessions during initialization and between SQL batches; fail closed on unreadable tracing metadata, with offline Azure-specific regressions.
 
 - Require an independently approved database-owner SID and reject altered built-in role/schema ownership before first initialization, with real disposable SQL regressions.

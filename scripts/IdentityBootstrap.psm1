@@ -132,14 +132,19 @@ function Assert-ZeroBootstrapRows($Connection,[string]$Query,[string]$Reason){
  if((Invoke-BootstrapSql $Connection $Query) -ne 0){throw $Reason}
 }
 function Assert-BootstrapAzureMetadata($Connection,$Transaction=$null){
- # These Azure SQL catalogs do not exist on LocalDB. Query errors must fail
- # closed; firewall access and tracing sessions survive schema initialization.
+ # This boundary targets Azure SQL; its firewall/event catalogs are absent on
+ # LocalDB. Persisted access, tracing and query overrides must fail closed.
  if((Invoke-BootstrapSql $Connection "SELECT SERVERPROPERTY('EngineEdition')" $Transaction) -eq 5){
   if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.database_firewall_rules' $Transaction) -ne 0){
    throw 'Unexpected database-level firewall rule; coordinate access recovery before initialization'
   }
   if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.database_event_sessions' $Transaction) -ne 0){
    throw 'Unexpected database event session; review tracing before initialization'
+  }
+  foreach($query in @('SELECT COUNT(*) FROM sys.query_store_query_hints','SELECT COUNT(*) FROM sys.query_store_plan WHERE is_forced_plan=1','SELECT COUNT(*) FROM sys.plan_guides')){
+   if((Invoke-BootstrapSql $Connection $query $Transaction) -ne 0){
+    throw 'Unexpected persisted query override; review tuning before initialization'
+   }
   }
  }
 }

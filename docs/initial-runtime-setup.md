@@ -64,6 +64,13 @@ Catalog-read errors abort initialization. LocalDB supports server-scoped session
 and lacks this Azure database-scoped catalog, so the event-session rejection,
 rollback and catalog-failure regressions use offline mocks, not live Azure evidence.
 
+Azure checks also refuse Query Store hints, forced Query Store plans and plan
+guides, including disabled guides. These persisted overrides can change application
+query behavior after schema recreation. Ordinary unforced Query Store history is
+allowed. Freeze query tuning administration during maintenance; the same detection
+limits and fail-closed behavior apply. Offline tests cover rejection before planning
+and execution, rollback after drift, unreadable catalogs and transaction binding.
+
 ## Runtime credentials and activation
 
 Create a contained external SQL user using the app managed identity's **client
