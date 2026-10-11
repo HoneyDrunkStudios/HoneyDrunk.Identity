@@ -35,7 +35,8 @@ try {
   @{Create='GRANT SELECT TO public';Drop='REVOKE SELECT FROM public';Label='public permissions'},
   @{Create='ALTER ROLE db_datareader ADD MEMBER guest';Drop='ALTER ROLE db_datareader DROP MEMBER guest';Label='built-in role membership'},
   @{Create="CREATE MASTER KEY ENCRYPTION BY PASSWORD='$keyPassword'; CREATE DATABASE SCOPED CREDENTIAL Unreviewed WITH IDENTITY='fixture', SECRET='$keyPassword'";Drop='DROP DATABASE SCOPED CREDENTIAL Unreviewed; DROP MASTER KEY';Label='secret-bearing database credential'},
-  @{Create="CREATE CERTIFICATE Unreviewed ENCRYPTION BY PASSWORD='$keyPassword' WITH SUBJECT='Disposable test certificate'";Drop='DROP CERTIFICATE Unreviewed';Label='certificate'}
+  @{Create="CREATE CERTIFICATE Unreviewed ENCRYPTION BY PASSWORD='$keyPassword' WITH SUBJECT='Disposable test certificate'";Drop='DROP CERTIFICATE Unreviewed';Label='certificate'},
+  @{Create="CREATE COLUMN MASTER KEY Unreviewed WITH (KEY_STORE_PROVIDER_NAME=N'MSSQL_CERTIFICATE_STORE', KEY_PATH=N'CurrentUser/My/0000000000000000000000000000000000000000')";Drop='DROP COLUMN MASTER KEY Unreviewed';Label='column master key metadata'}
  )){
   Invoke-BootstrapSql $c $artifact.Create|Out-Null
   try {Reject {Assert-EmptyBootstrapTarget $c $name} ("preexisting "+$artifact.Label+" rejected")}

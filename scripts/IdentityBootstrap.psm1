@@ -111,7 +111,7 @@ SELECT COUNT(*) FROM sys.database_permissions p WHERE NOT (
  Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.database_role_members WHERE NOT (role_principal_id=16384 AND member_principal_id=1)' 'Unexpected existing database role membership'
  Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.types WHERE is_user_defined=1' 'Unexpected existing database types'
  Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.assemblies WHERE is_user_defined=1' 'Unexpected existing database assemblies'
- foreach($catalog in @('symmetric_keys','asymmetric_keys','certificates','database_scoped_credentials','external_data_sources','external_file_formats','partition_functions','partition_schemes','fulltext_catalogs','fulltext_stoplists','registered_search_property_lists')){
+ foreach($catalog in @('symmetric_keys','asymmetric_keys','certificates','column_master_keys','column_encryption_keys','database_scoped_credentials','external_data_sources','external_file_formats','partition_functions','partition_schemes','fulltext_catalogs','fulltext_stoplists','registered_search_property_lists')){
   Assert-ZeroBootstrapRows $Connection "SELECT COUNT(*) FROM sys.$catalog" "Unexpected existing database artifacts in $catalog"
  }
  Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.xml_schema_collections WHERE xml_collection_id>1' 'Unexpected existing XML schema collections'
