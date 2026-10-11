@@ -84,6 +84,24 @@ class ScriptCoverageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             converter.convert([report, report], self.output, self.root)
 
+    def test_generic_merge_preserves_counts_and_rejects_duplicate_or_invalid_producers(self):
+        first = self.root / 'first.xml'
+        second = self.root / 'second.xml'
+        first.write_text('<coverage version="1"><file path="scripts/a.py"><lineToCover lineNumber="1" covered="false" /></file></coverage>')
+        second.write_text('<coverage version="1"><file path="scripts/b.ps1"><lineToCover lineNumber="2" covered="true" branchesToCover="2" coveredBranches="1" /></file></coverage>')
+        with patch('sys.argv', ['convert', '--generic', '--output', str(self.output), str(first), str(second)]):
+            converter.main()
+        result = ET.parse(self.output).getroot()
+        self.assertEqual([item.attrib['path'] for item in result], ['scripts/a.py', 'scripts/b.ps1'])
+        self.assertEqual(result[0][0].get('covered'), 'false')
+        self.assertEqual(result[1][0].get('coveredBranches'), '1')
+        for reports in ([], [first, first]):
+            with self.assertRaises(ValueError):
+                converter.merge_generic(reports, self.output)
+        second.write_text('<coverage/>')
+        with self.assertRaises(ValueError):
+            converter.merge_generic([second], self.output)
+
 
 if __name__ == '__main__':
     unittest.main()

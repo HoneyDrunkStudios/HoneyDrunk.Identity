@@ -65,7 +65,7 @@ jobs:
           Save-Module Pester -RequiredVersion 5.7.1 -Path $modules -Repository PSGallery -Force
           Import-Module (Join-Path $modules 'Pester/5.7.1/Pester.psd1')
           $config = New-PesterConfiguration
-          $config.Run.Path = 'scripts/tests/DatabaseReview.Tests.ps1'
+          $config.Run.Path = 'HoneyDrunk.Identity/HoneyDrunk.Identity.Tests/ScriptTests/DatabaseReview.Tests.ps1'
           $config.Run.Exit = $true
           $config.CodeCoverage.Enabled = $true
           $config.CodeCoverage.Path = @('scripts/Review-DevDatabase.ps1', 'scripts/Test-DatabaseReview.ps1')
@@ -81,17 +81,69 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  bootstrap-tests:
+    name: First-initialization SQL tests
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Build schema and measure real LocalDB tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet tool restore
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $project = 'HoneyDrunk.Identity/HoneyDrunk.Identity.Database/HoneyDrunk.Identity.Database.sqlproj'
+          dotnet restore $project --locked-mode
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet build $project -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          sqllocaldb create MSSQLLocalDB -s
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $modules = Join-Path $env:RUNNER_TEMP 'identity-bootstrap-modules'
+          Save-Module Pester -RequiredVersion 5.7.1 -Path $modules -Repository PSGallery -Force
+          Import-Module (Join-Path $modules 'Pester/5.7.1/Pester.psd1')
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'HoneyDrunk.Identity/HoneyDrunk.Identity.Tests/ScriptTests/IdentityBootstrap.Tests.ps1'
+          $config.Run.Exit = $true
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.Path = @('scripts/IdentityBootstrap.psm1', 'scripts/Initialize-DevDatabase.ps1', 'scripts/Test-IdentityBootstrap.ps1')
+          $config.CodeCoverage.OutputFormat = 'Cobertura'
+          $config.CodeCoverage.OutputPath = 'TestResults/bootstrap.xml'
+          Invoke-Pester -Configuration $config
+      - name: Convert measured coverage on its source platform
+        run: python scripts/convert_script_coverage.py --output TestResults/bootstrap-coverage.xml TestResults/bootstrap.xml
+      - uses: actions/upload-artifact@v6
+        with:
+          name: bootstrap-coverage
+          path: |
+            TestResults/bootstrap-coverage.xml
+            TestResults/bootstrap-executor-tests.json
+          if-no-files-found: error
+          retention-days: 7
+
   coverage-reports:
     name: Assemble measured coverage reports
-    needs: [pr-core, script-coverage]
+    needs: [pr-core, script-coverage, bootstrap-tests]
     if: |
-      always() && needs.script-coverage.result == 'success' && (
+      always() && needs.script-coverage.result == 'success' && needs.bootstrap-tests.result == 'success' && (
         (github.event_name == 'pull_request' && needs.pr-core.result == 'success') ||
         (github.event_name == 'push' && github.ref == 'refs/heads/main')
       )
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@v7
         if: github.event_name == 'pull_request'
         with:
@@ -101,6 +153,12 @@ jobs:
         with:
           name: script-coverage
           path: TestResults/scripts
+      - uses: actions/download-artifact@v7
+        with:
+          name: bootstrap-coverage
+          path: TestResults/bootstrap
+      - name: Merge measured script coverage for the shared scanner
+        run: python scripts/convert_script_coverage.py --generic --output TestResults/script-coverage.xml TestResults/scripts/script-coverage.xml TestResults/bootstrap/bootstrap-coverage.xml
       - uses: actions/upload-artifact@v6
         with:
           name: sonar-coverage
@@ -137,14 +195,14 @@ jobs:
       sonar-project-key: 'honeydrunkstudios_HoneyDrunk.Identity'
       sonar-tsql: true
       coverage-artifact-name: 'sonar-coverage'
-      generic-coverage-report-path: 'TestResults/scripts/script-coverage.xml'
+      generic-coverage-report-path: 'TestResults/script-coverage.xml'
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
       github-token: ${{ secrets.GITHUB_TOKEN }}
 
   sonar-findings:
     name: Sonar New-Code Findings
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.sonarcloud.result != 'skipped' && needs.sonarcloud.result != 'cancelled'
     needs: sonarcloud
     uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud-quality-gate.yml@cb2e5880f4e4529c417b1542262b27ca49fcd58d
     with:
@@ -165,6 +223,7 @@ jobs:
       - name: Read reporting metadata without changing Sonar settings
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         shell: python
         run: |
           import json
@@ -203,21 +262,16 @@ jobs:
               return " ".join(value.split())[:500]
 
           project = "honeydrunkstudios_HoneyDrunk.Identity"
-          # Existing main-target PR #1 task, needed to distinguish a decoration
-          # failure from Free-plan restrictions on non-main PR targets.
-          task = read("ce/task", id="AaEm2x-vlLooC1-UC7Ln", additionalFields="warnings").get("task", {})
-          print(json.dumps({"mainTargetTask": {key: task.get(key) for key in
-              ("id", "status", "componentKey", "analysisId", "warningCount")},
-              "warnings": [safe_warning(value) for value in task.get("warnings", [])]}))
+          number = os.environ["PR_NUMBER"]
           branches = read("project_branches/list", project=project).get("branches", [])
           print(json.dumps({"mainBranches": [{"name": item.get("name"), "isMain": item.get("isMain"),
               "analysisDate": item.get("analysisDate")} for item in branches if item.get("isMain")]}))
           requests = read("project_pull_requests/list", project=project).get("pullRequests", [])
           print(json.dumps({"pullRequests": [{key: item.get(key) for key in
               ("key", "branch", "base", "analysisDate", "status")} for item in requests
-              if str(item.get("key")) in ("1", "5")]}))
+              if str(item.get("key")) == number]}))
           # Only issue identifiers/rules/locations, never messages or source snippets.
-          for number in ("1", "5"):
+          for number in (number,):
               gate = read("qualitygates/project_status", projectKey=project, pullRequest=number).get("projectStatus", {})
               print(json.dumps({"pullRequest": number, "qualityGate": {
                   "status": gate.get("status"), "conditions": [{key: item.get(key) for key in
@@ -231,7 +285,7 @@ jobs:
           # Numeric file measurements locate coverage/duplication regressions without
           # retrieving source text, snippets or duplication block contents.
           metrics = "new_lines_to_cover,new_uncovered_lines,new_coverage,new_duplicated_lines,new_duplicated_lines_density"
-          files = read("measures/component_tree", component=project, pullRequest="1", qualifiers="FIL",
+          files = read("measures/component_tree", component=project, pullRequest=number, qualifiers="FIL",
               metricKeys=metrics, ps=500)
           print(json.dumps({"foundationFileMeasures": {
               "paging": files.get("paging"),

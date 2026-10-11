@@ -1,5 +1,10 @@
 # Development deployment review
 
+Historical proposal: see [first runtime initialization](initial-runtime-setup.md)
+for the separately approved October 11 Central US deployment and acceptance
+procedure. Inventory, regional pricing and pending approvals below describe the
+earlier review, not the current deployment.
+
 This is a source implementation and an approval plan, not a deployed environment. Resource creation, spending, credentials, consent, permissions, environment protection changes, merge and deployment require separate approval. The first target is basic customer sign-in. Deletion, consumer erasure and backup recovery remain disabled/unaccepted.
 
 ## Verified inventory, 2026-10-09; SQL/network recheck 2026-10-10

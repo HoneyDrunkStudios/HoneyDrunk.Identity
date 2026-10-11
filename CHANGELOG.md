@@ -2,6 +2,18 @@
 
 ## [0.1.0-alpha.4] - Unreleased candidate
 
+- Refuse persisted Query Store hints, forced plans and plan guides throughout Azure database initialization; preserve ordinary query history and cover tuning drift/rollback with offline tests.
+
+- Reject Azure database-scoped Extended Events sessions during initialization and between SQL batches; fail closed on unreadable tracing metadata, with offline Azure-specific regressions.
+
+- Require an independently approved database-owner SID and reject altered built-in role/schema ownership before first initialization, with real disposable SQL regressions.
+
+- Refuse Azure SQL database-level firewall rules during first initialization, recheck between execution batches and roll back on detected access drift; document the administrator firewall freeze and detection limits.
+
+- Route Identity traces, metrics and logs to distinct Pulse HTTP/protobuf endpoints with an actual transport regression test.
+- Add the bounded empty-dev database initializer used for the first Central US release, with exact-artifact checks, a DDL maintenance guard, atomic execution and reproducible LocalDB rollback/competing-writer tests in CI. The general schema publisher remains disabled.
+- Document the deployed runtime, managed-identity permissions, certificate rotation and remaining recovery/release-automation work.
+
 - Reconcile lifecycle deliveries with the current consumer registry before transitions and retries, retire removed destinations, and renew capabilities after route changes without touching another account's outbox.
 - Restrict deployment CLI operations and evidence output to the reviewed dev target/file; import executed Python and offline DacFx/Pester script coverage alongside .NET coverage without changing Sonar gates or enabling SQL publication.
 - Refresh the PR validation pin to the current reviewed shared workflows while retaining strict formatting.
