@@ -15,12 +15,18 @@ database. The general `Review-DevDatabase.ps1 -Action Publish` remains disabled.
 
 An operator with approved workforce Entra access and a temporary single-IP SQL
 firewall rule first runs `-Action Plan -Package <AzureSql.dacpac>
--ReviewDirectory <private-directory> -SourceRevision <40-character-commit>`.
+-ReviewDirectory <private-directory> -SourceRevision <40-character-commit>
+-ApprovedOwnerSid <approved-hex-SID>`.
 Review the generated SQL, DeployReport and manifest before separately authorized
 `-Action Initialize` with the same arguments. It checks the package, script,
 report, executor module and wrapper hashes, parses SQLCMD and SQL batches, installs a session-bound
 DDL maintenance guard, compares a fresh plan, and executes the reviewed batches
-inside an outer transaction. It refuses nonempty targets and unexpected users.
+inside an outer transaction. It refuses nonempty targets, unexpected users,
+altered fixed-role/schema ownership and a database owner that differs from the
+approved SID. Establish that SID from the approved owner identity and provisioning
+record; do not accept an observed target SID without independently verifying its
+owner. The manifest binds the SID, and initialization rechecks ownership under
+the guard. Existing manifests without this approval must be regenerated.
 The helper requires Windows x64 PowerShell 7 and uses the SqlPackage version
 pinned in `dotnet-tools.json`, resolved from the configured NuGet cache. Restore
 tools before use. Changing either executor file invalidates an existing plan.

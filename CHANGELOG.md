@@ -2,6 +2,8 @@
 
 ## [0.1.0-alpha.4] - Unreleased candidate
 
+- Require an independently approved database-owner SID and reject altered built-in role/schema ownership before first initialization, with real disposable SQL regressions.
+
 - Refuse Azure SQL database-level firewall rules during first initialization, recheck between execution batches and roll back on detected access drift; document the administrator firewall freeze and detection limits.
 
 - Route Identity traces, metrics and logs to distinct Pulse HTTP/protobuf endpoints with an actual transport regression test.

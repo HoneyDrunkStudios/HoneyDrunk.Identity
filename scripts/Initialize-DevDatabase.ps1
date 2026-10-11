@@ -3,6 +3,7 @@ param(
  [ValidateSet('Plan','Initialize')][string]$Action='Plan',
  [Parameter(Mandatory)][string]$Package,
  [Parameter(Mandatory)][string]$ReviewDirectory,
+ [Parameter(Mandatory)][ValidatePattern('^0x(?:[0-9a-fA-F]{2}){1,85}$')][string]$ApprovedOwnerSid,
  [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{40}$')][string]$SourceRevision
 )
 $ErrorActionPreference='Stop'
@@ -22,7 +23,7 @@ $connectionString="Server=tcp:$server,1433;Initial Catalog=$database;Encrypt=Tru
 $connection=$null;$guard=$false
 try {
  $connection=Open-BootstrapConnection $connectionString $token
- Assert-EmptyBootstrapTarget $connection $database
+ Assert-EmptyBootstrapTarget $connection $database $ApprovedOwnerSid
  $scriptPath=Join-Path $reviewPath 'deploy.sql'
  $reportPath=Join-Path $reviewPath 'deploy-report.xml'
  $manifestPath=Join-Path $reviewPath 'manifest.json'
@@ -31,18 +32,18 @@ try {
   $null=@(ConvertTo-BootstrapBatches $review.Script $database)
   [IO.File]::WriteAllText($scriptPath,$review.Script)
   [IO.File]::WriteAllText($reportPath,$review.Report)
-  @{server=$server;database=$database;revision=$SourceRevision;packageSha256=(Get-FileHash $packagePath).Hash;scriptSha256=(Get-FileHash $scriptPath).Hash;reportSha256=(Get-FileHash $reportPath).Hash;wrapperSha256=(Get-FileHash $PSCommandPath).Hash;executorSha256=(Get-FileHash "$PSScriptRoot/IdentityBootstrap.psm1").Hash}|ConvertTo-Json|Set-Content $manifestPath
+  @{server=$server;database=$database;approvedOwnerSid=$ApprovedOwnerSid;revision=$SourceRevision;packageSha256=(Get-FileHash $packagePath).Hash;scriptSha256=(Get-FileHash $scriptPath).Hash;reportSha256=(Get-FileHash $reportPath).Hash;wrapperSha256=(Get-FileHash $PSCommandPath).Hash;executorSha256=(Get-FileHash "$PSScriptRoot/IdentityBootstrap.psm1").Hash}|ConvertTo-Json|Set-Content $manifestPath
   Write-Output 'Initial schema plan saved; no deployment SQL executed.'
   return
  }
  $m=Get-Content $manifestPath -Raw|ConvertFrom-Json
- if($m.wrapperSha256 -ne (Get-FileHash $PSCommandPath).Hash -or $m.server -ne $server -or $m.database -ne $database -or $m.revision -ne $SourceRevision -or $m.packageSha256 -ne (Get-FileHash $packagePath).Hash -or $m.scriptSha256 -ne (Get-FileHash $scriptPath).Hash -or $m.reportSha256 -ne (Get-FileHash $reportPath).Hash -or $m.executorSha256 -ne (Get-FileHash "$PSScriptRoot/IdentityBootstrap.psm1").Hash){throw 'Reviewed source, target or executor changed'}
+ if($m.approvedOwnerSid -ine $ApprovedOwnerSid -or $m.wrapperSha256 -ne (Get-FileHash $PSCommandPath).Hash -or $m.server -ne $server -or $m.database -ne $database -or $m.revision -ne $SourceRevision -or $m.packageSha256 -ne (Get-FileHash $packagePath).Hash -or $m.scriptSha256 -ne (Get-FileHash $scriptPath).Hash -or $m.reportSha256 -ne (Get-FileHash $reportPath).Hash -or $m.executorSha256 -ne (Get-FileHash "$PSScriptRoot/IdentityBootstrap.psm1").Hash){throw 'Reviewed source, target or executor changed'}
  $reviewedScript=[IO.File]::ReadAllText($scriptPath)
  $batches=@(ConvertTo-BootstrapBatches $reviewedScript $database)
  Enter-BootstrapGuard $connection;$guard=$true
  # Close the gap between initial inspection and guard acquisition, including
  # permissions and other artifacts deliberately excluded from DacFx comparison.
- Assert-EmptyBootstrapTarget $connection $database -UnderGuard
+ Assert-EmptyBootstrapTarget $connection $database $ApprovedOwnerSid -UnderGuard
  # Fresh planning is read-only. The guard rejects DDL from every other session,
  # including other administrator sessions, throughout comparison and execution.
  $fresh=Get-BootstrapReview $connectionString $token $packagePath $database

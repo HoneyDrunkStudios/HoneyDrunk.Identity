@@ -93,9 +93,14 @@ function ConvertTo-BootstrapBatches([string]$Script,[string]$Database){
   if($sql.Trim()){Write-Output $sql}
  }
 }
-function Assert-EmptyBootstrapTarget($Connection,[string]$Database,[switch]$UnderGuard){
+function Assert-EmptyBootstrapTarget($Connection,[string]$Database,[string]$ApprovedOwnerSid,[switch]$UnderGuard){
  if((Invoke-BootstrapSql $Connection 'SELECT DB_NAME()') -cne $Database){throw 'Connected to wrong database'}
  Assert-BootstrapFirewall $Connection
+ if($ApprovedOwnerSid -notmatch '^0x(?:[0-9a-fA-F]{2}){1,85}$'){throw 'An independently approved database owner SID is required'}
+ $owner=Invoke-BootstrapSql $Connection 'SELECT CONVERT(varchar(172),owner_sid,1) FROM sys.databases WHERE database_id=DB_ID()'
+ if($owner -ine $ApprovedOwnerSid){throw 'Database owner differs from the approved identity'}
+ Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.database_principals WHERE is_fixed_role=1 AND (owning_principal_id IS NULL OR owning_principal_id<>1)' 'Unexpected fixed-role ownership'
+ Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.schemas s LEFT JOIN sys.database_principals p ON p.name=s.name WHERE p.principal_id IS NULL OR s.principal_id<>p.principal_id' 'Unexpected built-in schema ownership'
  Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.objects WHERE is_ms_shipped=0' 'First initialization refuses a nonempty database'
  Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.database_principals WHERE principal_id>4 AND is_fixed_role=0;' 'Unexpected existing database users; review all writers first'
  Assert-ZeroBootstrapRows $Connection "SELECT COUNT(*) FROM sys.schemas WHERE name NOT IN ('dbo','guest','INFORMATION_SCHEMA','sys','db_owner','db_accessadmin','db_securityadmin','db_ddladmin','db_backupoperator','db_datareader','db_datawriter','db_denydatareader','db_denydatawriter')" 'Unexpected existing database schemas'

@@ -28,7 +28,7 @@ Describe 'Database firewall boundary' {
         }
         It 'rejects existing Azure database firewall access before schema inspection' {
             $script:firewallRules = 1
-            { Assert-EmptyBootstrapTarget $script:connection 'test-db' } | Should -Throw '*database-level firewall rule*'
+            { Assert-EmptyBootstrapTarget $script:connection 'test-db' '0x01' } | Should -Throw '*database-level firewall rule*'
         }
         It 'rejects a firewall rule that appears after a deployment batch and rolls back' {
             { Invoke-ExactBootstrap $script:connection @('raced firewall', 'must not execute') } | Should -Throw '*database-level firewall rule*'
@@ -94,9 +94,9 @@ Describe 'Initializer approval and cleanup boundary' {
         Mock Invoke-ExactBootstrap {}
     }
     It 'plans without executing and commits only the matching fresh review' {
-        & $initializer -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision
+        & $initializer -Package $package -ApprovedOwnerSid '0x01' -ReviewDirectory $reviewDirectory -SourceRevision $revision
         Should -Invoke Invoke-ExactBootstrap -Times 0 -Exactly
-        & $initializer -Action Initialize -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision
+        & $initializer -Action Initialize -Package $package -ApprovedOwnerSid '0x01' -ReviewDirectory $reviewDirectory -SourceRevision $revision
         Should -Invoke Enter-BootstrapGuard -Times 1 -Exactly
         Should -Invoke Invoke-ExactBootstrap -Times 1 -Exactly
         Should -Invoke Exit-BootstrapGuard -Times 1 -Exactly
@@ -107,50 +107,50 @@ Describe 'Initializer approval and cleanup boundary' {
         @{ Field = 'wrapperSha256' }, @{ Field = 'executorSha256' },
         @{ Field = 'packageSha256' }, @{ Field = 'scriptSha256' },
         @{ Field = 'reportSha256' }, @{ Field = 'server' },
-        @{ Field = 'database' }, @{ Field = 'revision' }
+        @{ Field = 'database' }, @{ Field = 'revision' }, @{ Field = 'approvedOwnerSid' }
     ) {
-        & $initializer -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision
+        & $initializer -Package $package -ApprovedOwnerSid '0x01' -ReviewDirectory $reviewDirectory -SourceRevision $revision
         $path = Join-Path $reviewDirectory 'manifest.json'
         $manifest = Get-Content $path -Raw | ConvertFrom-Json
         $manifest.$Field = 'changed'
         $manifest | ConvertTo-Json | Set-Content $path
-        { & $initializer -Action Initialize -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision } |
+        { & $initializer -Action Initialize -Package $package -ApprovedOwnerSid '0x01' -ReviewDirectory $reviewDirectory -SourceRevision $revision } |
             Should -Throw '*Reviewed source, target or executor changed*'
         Should -Invoke Enter-BootstrapGuard -Times 0 -Exactly
         Should -Invoke Invoke-ExactBootstrap -Times 0 -Exactly
     }
     It 'rejects fresh schema drift and releases maintenance without executing' {
-        & $initializer -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision
+        & $initializer -Package $package -ApprovedOwnerSid '0x01' -ReviewDirectory $reviewDirectory -SourceRevision $revision
         Mock Get-BootstrapReview { @{ Script = 'different SQL'; Report = '<report />' } }
-        { & $initializer -Action Initialize -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision } |
+        { & $initializer -Action Initialize -Package $package -ApprovedOwnerSid '0x01' -ReviewDirectory $reviewDirectory -SourceRevision $revision } |
             Should -Throw '*Schema drift*'
         Should -Invoke Invoke-ExactBootstrap -Times 0 -Exactly
         Should -Invoke Exit-BootstrapGuard -Times 1 -Exactly
     }
     It 'rechecks emptiness under the guard and refuses a raced permission' {
-        & $initializer -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision
+        & $initializer -Package $package -ApprovedOwnerSid '0x01' -ReviewDirectory $reviewDirectory -SourceRevision $revision
         Mock Assert-EmptyBootstrapTarget { throw 'Raced permission' } -ParameterFilter { $UnderGuard }
-        { & $initializer -Action Initialize -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision } |
+        { & $initializer -Action Initialize -Package $package -ApprovedOwnerSid '0x01' -ReviewDirectory $reviewDirectory -SourceRevision $revision } |
             Should -Throw '*Raced permission*'
         Should -Invoke Exit-BootstrapGuard -Times 1 -Exactly
         Should -Invoke Invoke-ExactBootstrap -Times 0 -Exactly
     }
     It 'rejects an active app before connecting to SQL' {
         Mock az { $global:LASTEXITCODE = 0; '{"enabled":true,"state":"Running"}' }
-        { & $initializer -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision } |
+        { & $initializer -Package $package -ApprovedOwnerSid '0x01' -ReviewDirectory $reviewDirectory -SourceRevision $revision } |
             Should -Throw '*disabled app*'
         Should -Invoke Open-BootstrapConnection -Times 0 -Exactly
     }
     It 'refuses an already initialized database before planning' {
         Mock Assert-EmptyBootstrapTarget { throw 'Nonempty target' }
-        { & $initializer -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision } |
+        { & $initializer -Package $package -ApprovedOwnerSid '0x01' -ReviewDirectory $reviewDirectory -SourceRevision $revision } |
             Should -Throw '*Nonempty target*'
         Should -Invoke Get-BootstrapReview -Times 0 -Exactly
     }
     It 'does not record a successful execution when execution fails' {
-        & $initializer -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision
+        & $initializer -Package $package -ApprovedOwnerSid '0x01' -ReviewDirectory $reviewDirectory -SourceRevision $revision
         Mock Invoke-ExactBootstrap { throw 'Injected execution failure' }
-        { & $initializer -Action Initialize -Package $package -ReviewDirectory $reviewDirectory -SourceRevision $revision } |
+        { & $initializer -Action Initialize -Package $package -ApprovedOwnerSid '0x01' -ReviewDirectory $reviewDirectory -SourceRevision $revision } |
             Should -Throw '*Injected execution failure*'
         Should -Invoke Exit-BootstrapGuard -Times 1 -Exactly
         Test-Path (Join-Path $reviewDirectory 'execution.json') | Should -BeFalse

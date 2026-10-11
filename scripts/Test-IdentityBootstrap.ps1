@@ -23,12 +23,18 @@ try {
  Invoke-BootstrapSql $master "ALTER DATABASE [$name] SET AUTO_CLOSE OFF"|Out-Null
  $cs=$masterString.Replace('Initial Catalog=master',"Initial Catalog=$name")
  $c=Open-BootstrapConnection $cs '';$other=Open-BootstrapConnection $cs ''
- Assert-EmptyBootstrapTarget $c $name
+ # This uniquely created test database is owned by the known LocalDB creator.
+ $approvedOwnerSid=Invoke-BootstrapSql $c 'SELECT CONVERT(varchar(172),owner_sid,1) FROM sys.databases WHERE database_id=DB_ID()'
+ $originalOwner=Invoke-BootstrapSql $c 'SELECT SUSER_SNAME(owner_sid) FROM sys.databases WHERE database_id=DB_ID()'
+
+ Assert-EmptyBootstrapTarget $c $name $approvedOwnerSid
  $keyPassword=[guid]::NewGuid().ToString('N')+'a!1'
  foreach($artifact in @(
   @{Create='CREATE SYNONYM dbo.Unreviewed FOR dbo.Missing';Drop='DROP SYNONYM dbo.Unreviewed';Label='synonym'},
   @{Create='CREATE SCHEMA Unreviewed';Drop='DROP SCHEMA Unreviewed';Label='schema'},
   @{Create='CREATE TYPE dbo.Unreviewed FROM int';Drop='DROP TYPE dbo.Unreviewed';Label='type'},
+  @{Create='ALTER AUTHORIZATION ON ROLE::db_owner TO [public]';Drop='ALTER AUTHORIZATION ON ROLE::db_owner TO dbo';Label='fixed-role ownership'},
+  @{Create='ALTER AUTHORIZATION ON SCHEMA::db_datareader TO [public]';Drop='ALTER AUTHORIZATION ON SCHEMA::db_datareader TO db_datareader';Label='built-in schema ownership'},
   @{Create='CREATE ROLE Unreviewed';Drop='DROP ROLE Unreviewed';Label='role'},
   @{Create='CREATE USER Unreviewed WITHOUT LOGIN';Drop='DROP USER Unreviewed';Label='user'},
   @{Create='GRANT CONNECT TO guest; GRANT SELECT TO guest';Drop='REVOKE SELECT FROM guest; REVOKE CONNECT FROM guest';Label='guest permissions'},
@@ -39,10 +45,18 @@ try {
   @{Create="CREATE COLUMN MASTER KEY Unreviewed WITH (KEY_STORE_PROVIDER_NAME=N'MSSQL_CERTIFICATE_STORE', KEY_PATH=N'CurrentUser/My/0000000000000000000000000000000000000000')";Drop='DROP COLUMN MASTER KEY Unreviewed';Label='column master key metadata'}
  )){
   Invoke-BootstrapSql $c $artifact.Create|Out-Null
-  try {Reject {Assert-EmptyBootstrapTarget $c $name} ("preexisting "+$artifact.Label+" rejected")}
+  try {Reject {Assert-EmptyBootstrapTarget $c $name $approvedOwnerSid} ("preexisting "+$artifact.Label+" rejected")}
   finally {Invoke-BootstrapSql $c $artifact.Drop|Out-Null}
-  Assert-EmptyBootstrapTarget $c $name
+  Assert-EmptyBootstrapTarget $c $name $approvedOwnerSid
  }
+ # Changing owner must fail even when no user-defined objects/principals exist.
+ Invoke-BootstrapSql $c "ALTER AUTHORIZATION ON DATABASE::[$name] TO [sa]"|Out-Null
+ try {Reject {Assert-EmptyBootstrapTarget $c $name $approvedOwnerSid} 'unapproved database owner rejected'}
+ finally {
+  $quotedOwner='['+$originalOwner.Replace(']',']]')+']'
+  Invoke-BootstrapSql $c "ALTER AUTHORIZATION ON DATABASE::[$name] TO $quotedOwner"|Out-Null
+ }
+ Assert-EmptyBootstrapTarget $c $name $approvedOwnerSid
  $packagePath=(Resolve-Path -LiteralPath $Package).Path
  $review=Get-BootstrapReview $cs '' $packagePath $name
  $script=$review.Script
@@ -57,12 +71,12 @@ try {
  # Simulate an administrator granting access after inspection but before locking.
  Invoke-BootstrapSql $other 'GRANT SELECT TO guest'|Out-Null
  Enter-BootstrapGuard $c;$guard=$true
- Reject {Assert-EmptyBootstrapTarget $c $name -UnderGuard} 'permission race before guard rejected'
+ Reject {Assert-EmptyBootstrapTarget $c $name $approvedOwnerSid -UnderGuard} 'permission race before guard rejected'
  Exit-BootstrapGuard $c;$guard=$false
  Invoke-BootstrapSql $other 'REVOKE SELECT FROM guest'|Out-Null
  $c.Dispose();$c=Open-BootstrapConnection $cs ''
  Enter-BootstrapGuard $c;$guard=$true
- Assert-EmptyBootstrapTarget $c $name -UnderGuard
+ Assert-EmptyBootstrapTarget $c $name $approvedOwnerSid -UnderGuard
  Reject {Invoke-BootstrapSql $other 'GRANT SELECT TO guest'} 'competing permission grant blocked'
  $fresh=Get-BootstrapReview $cs '' $packagePath $name
  if($fresh.Script -cne $script -or $fresh.Report -cne $review.Report){throw 'Maintenance guard changed the generated plan'}
@@ -78,14 +92,14 @@ try {
  $passed.Add('no tables or schema survived failure')
  # A fresh session restores default SET/temporary-object state after rollback.
  Exit-BootstrapGuard $c;$guard=$false;$c.Dispose();$c=Open-BootstrapConnection $cs ''
- Assert-EmptyBootstrapTarget $c $name
+ Assert-EmptyBootstrapTarget $c $name $approvedOwnerSid
  Enter-BootstrapGuard $c;$guard=$true
  Invoke-ExactBootstrap $c $batches
  if((Invoke-BootstrapSql $c 'SELECT COUNT(*) FROM sys.tables WHERE is_ms_shipped=0') -ne 7){throw 'Expected all seven DACPAC tables'}
  if((Invoke-BootstrapSql $c 'SELECT COUNT(*) FROM sys.foreign_keys WHERE is_disabled=1 OR is_not_trusted=1') -ne 0){throw 'Untrusted constraints after initialization'}
  $passed.Add('complete generated schema committed with trusted constraints')
  Exit-BootstrapGuard $c;$guard=$false
- Reject {Assert-EmptyBootstrapTarget $c $name} 'reinitialization refuses populated schema'
+ Reject {Assert-EmptyBootstrapTarget $c $name $approvedOwnerSid} 'reinitialization refuses populated schema'
  Invoke-BootstrapSql $other 'CREATE TABLE dbo.AfterMaintenance(Id int); DROP TABLE dbo.AfterMaintenance;'|Out-Null
  $passed.Add('maintenance guard removed and normal DDL restored')
  $results=Join-Path $PSScriptRoot '../TestResults'
