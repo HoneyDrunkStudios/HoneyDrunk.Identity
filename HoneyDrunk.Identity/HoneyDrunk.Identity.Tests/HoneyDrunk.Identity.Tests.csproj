@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <None Include="../../scripts/tests/*.Tests.ps1" Link="ScriptTests/%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

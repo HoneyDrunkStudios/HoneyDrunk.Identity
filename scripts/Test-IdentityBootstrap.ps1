@@ -13,7 +13,7 @@ $passed=[Collections.Generic.List[string]]::new()
 function Reject([scriptblock]$Action,[string]$Label){
  $rejected=$false
  try {& $Action|Out-Null}catch{$rejected=$true}
- if(!$rejected){throw "Expected rejection: $Label"}
+ if(-not $rejected){throw "Expected rejection: $Label"}
  $passed.Add($Label)
 }
 try {

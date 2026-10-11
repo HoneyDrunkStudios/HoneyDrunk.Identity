@@ -50,7 +50,7 @@ function Get-BootstrapReview([string]$ConnectionString,[string]$AccessToken,[str
   return @{Script=$services.GenerateDeployScript($pkg,$Database,$options);Report=$services.GenerateDeployReport($pkg,$Database,$options)}
  }finally{$pkg.Dispose()}
 }
-function ConvertTo-BootstrapBatches([string]$Script,[string]$Database){
+function Read-BootstrapSqlCmd([string]$Script){
  $variables=@{}
  $lines=[Collections.Generic.List[string]]::new()
  foreach($line in ($Script -split '\r?\n')){
@@ -63,14 +63,21 @@ function ConvertTo-BootstrapBatches([string]$Script,[string]$Database){
   if($line -match '^\s*:'){throw 'Unsupported SQLCMD directive'}
   $lines.Add($line)
  }
- if($variables['DatabaseName'] -cne $Database -or $variables['__IsSqlCmdEnabled'] -cne 'True'){throw 'SQLCMD target/mode mismatch'}
- $text=$lines -join "`n"
+ return @{Variables=$variables;Text=($lines -join "`n")}
+}
+function Expand-BootstrapSqlCmd($Variables,[string]$Text,[string]$Database){
+ if($Variables['DatabaseName'] -cne $Database -or $Variables['__IsSqlCmdEnabled'] -cne 'True'){throw 'SQLCMD target/mode mismatch'}
  foreach($key in $variables.Keys){
   $value=$variables[$key]
   if($key -in @('DatabaseName','DefaultFilePrefix') -and $value -notmatch '^[A-Za-z0-9_-]+$'){throw 'Unsafe database variable'}
   $text=$text.Replace('$('+ $key +')',$value)
  }
  if($text -match '\$\('){throw 'Unresolved SQLCMD variable'}
+ return $text
+}
+function ConvertTo-BootstrapBatches([string]$Script,[string]$Database){
+ $sqlcmd=Read-BootstrapSqlCmd $Script
+ $text=Expand-BootstrapSqlCmd $sqlcmd.Variables $sqlcmd.Text $Database
  $errors=$null
  $parser=[Microsoft.SqlServer.TransactSql.ScriptDom.TSql160Parser]::new($true)
  $tree=$parser.Parse([IO.StringReader]::new($text),[ref]$errors)
@@ -88,14 +95,11 @@ function ConvertTo-BootstrapBatches([string]$Script,[string]$Database){
 }
 function Assert-EmptyBootstrapTarget($Connection,[string]$Database,[switch]$UnderGuard){
  if((Invoke-BootstrapSql $Connection 'SELECT DB_NAME()') -cne $Database){throw 'Connected to wrong database'}
- $objects=Invoke-BootstrapSql $Connection "SELECT COUNT(*) FROM sys.objects WHERE is_ms_shipped=0"
- if($objects -ne 0){throw 'First initialization refuses a nonempty database'}
- $principals=Invoke-BootstrapSql $Connection "SELECT COUNT(*) FROM sys.database_principals WHERE principal_id>4 AND is_fixed_role=0;"
- if($principals -ne 0){throw 'Unexpected existing database users; review all writers first'}
- $schemas=Invoke-BootstrapSql $Connection "SELECT COUNT(*) FROM sys.schemas WHERE name NOT IN ('dbo','guest','INFORMATION_SCHEMA','sys','db_owner','db_accessadmin','db_securityadmin','db_ddladmin','db_backupoperator','db_datareader','db_datawriter','db_denydatareader','db_denydatawriter')"
- if($schemas -ne 0){throw 'Unexpected existing database schemas'}
+ Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.objects WHERE is_ms_shipped=0' 'First initialization refuses a nonempty database'
+ Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.database_principals WHERE principal_id>4 AND is_fixed_role=0;' 'Unexpected existing database users; review all writers first'
+ Assert-ZeroBootstrapRows $Connection "SELECT COUNT(*) FROM sys.schemas WHERE name NOT IN ('dbo','guest','INFORMATION_SCHEMA','sys','db_owner','db_accessadmin','db_securityadmin','db_ddladmin','db_backupoperator','db_datareader','db_datawriter','db_denydatareader','db_denydatawriter')" 'Unexpected existing database schemas'
  # Permit only fresh-database grants; DacFx deliberately does not overwrite permissions.
- $permissions=Invoke-BootstrapSql $Connection @"
+ $permissionQuery=@"
 SELECT COUNT(*) FROM sys.database_permissions p WHERE NOT (
  p.grantor_principal_id=1 AND p.state='G' AND p.minor_id=0 AND (
   (p.class=0 AND p.major_id=0 AND p.grantee_principal_id=1 AND p.type='CO') OR
@@ -103,20 +107,23 @@ SELECT COUNT(*) FROM sys.database_permissions p WHERE NOT (
   (p.class=1 AND p.major_id<0 AND p.grantee_principal_id=0 AND p.type='SL')
  ))
 "@
- if($permissions -ne 0){throw 'Unexpected existing database permissions'}
- if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.database_role_members WHERE NOT (role_principal_id=16384 AND member_principal_id=1)') -ne 0){throw 'Unexpected existing database role membership'}
- if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.types WHERE is_user_defined=1') -ne 0){throw 'Unexpected existing database types'}
- if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.assemblies WHERE is_user_defined=1') -ne 0){throw 'Unexpected existing database assemblies'}
+ Assert-ZeroBootstrapRows $Connection $permissionQuery 'Unexpected existing database permissions'
+ Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.database_role_members WHERE NOT (role_principal_id=16384 AND member_principal_id=1)' 'Unexpected existing database role membership'
+ Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.types WHERE is_user_defined=1' 'Unexpected existing database types'
+ Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.assemblies WHERE is_user_defined=1' 'Unexpected existing database assemblies'
  foreach($catalog in @('symmetric_keys','asymmetric_keys','certificates','database_scoped_credentials','external_data_sources','external_file_formats','partition_functions','partition_schemes','fulltext_catalogs','fulltext_stoplists','registered_search_property_lists')){
-  if((Invoke-BootstrapSql $Connection "SELECT COUNT(*) FROM sys.$catalog") -ne 0){throw "Unexpected existing database artifacts in $catalog"}
+  Assert-ZeroBootstrapRows $Connection "SELECT COUNT(*) FROM sys.$catalog" "Unexpected existing database artifacts in $catalog"
  }
- if((Invoke-BootstrapSql $Connection 'SELECT COUNT(*) FROM sys.xml_schema_collections WHERE xml_collection_id>1') -ne 0){throw 'Unexpected existing XML schema collections'}
+ Assert-ZeroBootstrapRows $Connection 'SELECT COUNT(*) FROM sys.xml_schema_collections WHERE xml_collection_id>1' 'Unexpected existing XML schema collections'
  $triggerQuery='SELECT COUNT(*) FROM sys.triggers WHERE parent_class=0'
  if($UnderGuard){
   if((Invoke-BootstrapSql $Connection "SELECT COUNT(*) FROM sys.triggers WHERE parent_class=0 AND name='__identity_bootstrap_guard' AND is_disabled=0") -ne 1){throw 'Bootstrap guard is not active'}
   $triggerQuery+=" AND name<>'__identity_bootstrap_guard'"
  }
- if((Invoke-BootstrapSql $Connection $triggerQuery) -ne 0){throw 'Existing database trigger requires recovery/review'}
+ Assert-ZeroBootstrapRows $Connection $triggerQuery 'Existing database trigger requires recovery/review'
+}
+function Assert-ZeroBootstrapRows($Connection,[string]$Query,[string]$Reason){
+ if((Invoke-BootstrapSql $Connection $Query) -ne 0){throw $Reason}
 }
 function Enter-BootstrapGuard($Connection){
  $spid=[int](Invoke-BootstrapSql $Connection 'SELECT @@SPID')
@@ -143,7 +150,7 @@ function Invoke-ExactBootstrap($Connection,[string[]]$Batches){
   if((Invoke-BootstrapSql $Connection 'SELECT @@TRANCOUNT' $tx) -ne 1){throw 'Script escaped outer transaction boundary'}
   $tx.Commit()
  }catch{
-  try{$tx.Rollback()}catch{}
+  try{$tx.Rollback()}catch{Write-Verbose 'Rollback was unavailable; preserving the original bootstrap failure.'}
   throw
  }finally{$tx.Dispose()}
 }

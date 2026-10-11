@@ -17,7 +17,7 @@ New-Item -ItemType Directory -Path $reviewPath -Force|Out-Null
 $site=az webapp show --subscription $subscription -g rg-hd-identity-dev -n app-hd-identity-dev --query '{enabled:enabled,state:state}' -o json|ConvertFrom-Json
 if($LASTEXITCODE -or $site.enabled -ne $false -or $site.state -notin @('Disabled','Stopped')){throw 'First initialization requires the disabled app'}
 $token=az account get-access-token --tenant $tenant --resource https://database.windows.net/ --query accessToken -o tsv
-if($LASTEXITCODE -or !$token){throw 'SQL token acquisition failed'}
+if($LASTEXITCODE -or -not $token){throw 'SQL token acquisition failed'}
 $connectionString="Server=tcp:$server,1433;Initial Catalog=$database;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Application Name=IdentityInitialSetup;Pooling=False"
 $connection=$null;$guard=$false
 try {
