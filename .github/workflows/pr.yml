@@ -204,7 +204,7 @@ jobs:
     name: Sonar New-Code Findings
     if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.sonarcloud.result != 'skipped' && needs.sonarcloud.result != 'cancelled'
     needs: sonarcloud
-    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud-quality-gate.yml@cb2e5880f4e4529c417b1542262b27ca49fcd58d
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud-quality-gate.yml@68f5db6e2e3a9ed94aee9b3e27f1ebfea59bccc4
     with:
       sonar-organization: 'honeydrunkstudios'
       sonar-project-key: 'honeydrunkstudios_HoneyDrunk.Identity'
