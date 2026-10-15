@@ -294,6 +294,45 @@ jobs:
                       for measure in item.get("measures", [])]}
                   for item in files.get("components", [])]}}))
 
+  # Gate the actual reusable-workflow result, not its informational PR Summary.
+  # Reporting diagnostics remain independent; package checks are separate workflows.
+  pr-status:
+    name: PR Status
+    needs: [pr-core, script-coverage, bootstrap-tests, coverage-reports, sonarcloud, sonar-findings]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require eligible checks
+        env:
+          CORE_RESULT: ${{ needs.pr-core.result }}
+          SCRIPT_RESULT: ${{ needs.script-coverage.result }}
+          BOOTSTRAP_RESULT: ${{ needs.bootstrap-tests.result }}
+          COVERAGE_RESULT: ${{ needs.coverage-reports.result }}
+          SCANNER_RESULT: ${{ needs.sonarcloud.result }}
+          FINDINGS_RESULT: ${{ needs.sonar-findings.result }}
+          SAME_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for result_name in CORE_RESULT SCRIPT_RESULT BOOTSTRAP_RESULT COVERAGE_RESULT; do
+            if [[ "${!result_name}" != "success" ]]; then
+              echo "::error::Required check did not succeed ($result_name=${!result_name})."
+              exit 1
+            fi
+          done
+          if [[ "$SAME_REPOSITORY" == "true" ]]; then
+            if [[ "$SCANNER_RESULT" != "success" || "$FINDINGS_RESULT" != "success" ]]; then
+              echo "::error::Required Sonar checks did not succeed (scanner=$SCANNER_RESULT, findings=$FINDINGS_RESULT)."
+              exit 1
+            fi
+          elif [[ "$SAME_REPOSITORY" == "false" && "$SCANNER_RESULT" == "skipped" && "$FINDINGS_RESULT" == "skipped" ]]; then
+            echo "Fork PR: Sonar checks are ineligible because repository secrets are unavailable."
+          else
+            echo "::error::Unexpected Sonar eligibility or results (same-repository=$SAME_REPOSITORY, scanner=$SCANNER_RESULT, findings=$FINDINGS_RESULT)."
+            exit 1
+          fi
+
   coverage-baseline-ratchet:
     name: Coverage Baseline Ratchet
     if: github.event_name == 'push'
