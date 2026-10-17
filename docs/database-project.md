@@ -1,6 +1,6 @@
 # SQL database project
 
-Open `HoneyDrunk.Identity/HoneyDrunk.Identity.slnx` and expand `HoneyDrunk.Identity.Database`. Its `.sqlproj` builds `bin/Debug/HoneyDrunk.Identity.Database.dacpac` and loads as a traditional SSDT project in Visual Studio 2026. Use the normal SQL Server Data Tools component and .NET Framework 4.8 targeting pack. Framework is only a SQL build-tool dependency; the Identity API remains on .NET 10.
+Open `HoneyDrunk.Identity.slnx` and expand `HoneyDrunk.Identity.Database`. Its `.sqlproj` builds `bin/Debug/HoneyDrunk.Identity.Database.dacpac` and loads as a traditional SSDT project in Visual Studio 2026. Use the normal SQL Server Data Tools component and .NET Framework 4.8 targeting pack. Framework is only a SQL build-tool dependency; the Identity API remains on .NET 10.
 
 Only command-line `dotnet` builds conditionally import the pinned Microsoft.Build.Sql SDK. Visual Studio uses its installed SSDT targets. Both paths share the explicit SQL file list and DACPAC output, with separate intermediate directories. Add new SQL files through Visual Studio or explicitly include them in the project. No SDK-style Visual Studio extension is required.
 

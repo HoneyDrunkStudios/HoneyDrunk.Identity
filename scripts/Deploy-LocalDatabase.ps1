@@ -2,7 +2,7 @@
 param([ValidateSet('Script', 'DeployReport', 'Publish')][string]$Action = 'Script')
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
-$project = Join-Path $repo 'HoneyDrunk.Identity/HoneyDrunk.Identity.Database'
+$project = Join-Path $repo 'src/HoneyDrunk.Identity.Database'
 Push-Location $repo
 try {
     dotnet tool restore

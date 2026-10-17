@@ -26,7 +26,7 @@ jobs:
       configuration: 'Release'
       runs-on: 'ubuntu-latest'
       working-directory: '.'
-      project-path: './HoneyDrunk.Identity/HoneyDrunk.Identity.slnx'
+      project-path: './HoneyDrunk.Identity.slnx'
       fail-on-formatting-issues: true
       enable-secret-scan: true
       enable-accessibility-check: false
@@ -65,7 +65,7 @@ jobs:
           Save-Module Pester -RequiredVersion 5.7.1 -Path $modules -Repository PSGallery -Force
           Import-Module (Join-Path $modules 'Pester/5.7.1/Pester.psd1')
           $config = New-PesterConfiguration
-          $config.Run.Path = 'HoneyDrunk.Identity/HoneyDrunk.Identity.Tests/ScriptTests/DatabaseReview.Tests.ps1'
+          $config.Run.Path = 'tests/HoneyDrunk.Identity.Tests/ScriptTests/DatabaseReview.Tests.ps1'
           $config.Run.Exit = $true
           $config.CodeCoverage.Enabled = $true
           $config.CodeCoverage.Path = @('scripts/Review-DevDatabase.ps1', 'scripts/Test-DatabaseReview.ps1')
@@ -101,7 +101,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           dotnet tool restore
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $project = 'HoneyDrunk.Identity/HoneyDrunk.Identity.Database/HoneyDrunk.Identity.Database.sqlproj'
+          $project = 'src/HoneyDrunk.Identity.Database/HoneyDrunk.Identity.Database.sqlproj'
           dotnet restore $project --locked-mode
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet build $project -c Release --no-restore
@@ -112,7 +112,7 @@ jobs:
           Save-Module Pester -RequiredVersion 5.7.1 -Path $modules -Repository PSGallery -Force
           Import-Module (Join-Path $modules 'Pester/5.7.1/Pester.psd1')
           $config = New-PesterConfiguration
-          $config.Run.Path = 'HoneyDrunk.Identity/HoneyDrunk.Identity.Tests/ScriptTests/IdentityBootstrap.Tests.ps1'
+          $config.Run.Path = 'tests/HoneyDrunk.Identity.Tests/ScriptTests/IdentityBootstrap.Tests.ps1'
           $config.Run.Exit = $true
           $config.CodeCoverage.Enabled = $true
           $config.CodeCoverage.Path = @('scripts/IdentityBootstrap.psm1', 'scripts/Initialize-DevDatabase.ps1', 'scripts/Test-IdentityBootstrap.ps1')
@@ -190,7 +190,7 @@ jobs:
       dotnet-version: '10.0.x'
       runs-on: 'ubuntu-latest'
       working-directory: '.'
-      project-path: './HoneyDrunk.Identity/HoneyDrunk.Identity.slnx'
+      project-path: './HoneyDrunk.Identity.slnx'
       sonar-organization: 'honeydrunkstudios'
       sonar-project-key: 'honeydrunkstudios_HoneyDrunk.Identity'
       sonar-tsql: true
@@ -345,7 +345,7 @@ jobs:
       configuration: 'Release'
       runs-on: 'ubuntu-latest'
       working-directory: '.'
-      project-path: './HoneyDrunk.Identity/HoneyDrunk.Identity.slnx'
+      project-path: './HoneyDrunk.Identity.slnx'
       actions-ref: 'main'
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}

@@ -1,10 +1,15 @@
 # HoneyDrunk.Identity
 
+## Repository layout
+
+Open `HoneyDrunk.Identity.slnx` from the repository root. Production projects live in `src/`, test and canary projects in `tests/`, and examples in `samples/` where present. Shared build configuration stays at the root; project names, namespaces and package identities are unchanged. Existing documentation and release-history locations are retained.
+
+
 Shared account API for Pocket Quests and future HoneyDrunk applications. The service owns its SQL database; multiple application databases can share one SQL Server instance. The source foundation is merged; this is not a production release.
 
 ## Solution and responsibilities
 
-Open `HoneyDrunk.Identity/HoneyDrunk.Identity.slnx` in Visual Studio. Projects sit beside the solution and use responsibility folders internally. Persistence types have an `Entity` suffix and separate Fluent API configurations; public account/domain contracts do not. See [code organization](docs/code-organization.md).
+Open `HoneyDrunk.Identity.slnx` in Visual Studio. Production projects live under `src/`, tests under `tests/`, and each project uses responsibility folders internally. Persistence types have an `Entity` suffix and separate Fluent API configurations; public account/domain contracts do not. See [code organization](docs/code-organization.md).
 
 - API and Entra provider: validate issuer, audience, signature, lifetime and the exact delegated `access_as_user` scope before resolving a stable account. Link/unlink proofs use the same scope requirement. User identity is based on issuer/subject, never an email match.
 - Runtime: directory resolution, account linking, recent-proof deletion/recovery, durable lifecycle intent delivery and consumer acknowledgments. Deletion fails closed without configured private transport and consumers. Provider and consumer failures retain account access restrictions.
@@ -21,15 +26,15 @@ From the repository root:
 
 ```powershell
 dotnet tool restore
-dotnet restore HoneyDrunk.Identity/HoneyDrunk.Identity.slnx --locked-mode
+dotnet restore HoneyDrunk.Identity.slnx --locked-mode
 # Create the dedicated development instance once, then start it.
 sqllocaldb create PocketQuests
 sqllocaldb start PocketQuests
 ./scripts/Deploy-LocalDatabase.ps1
 # Review the generated deployment SQL first.
 ./scripts/Deploy-LocalDatabase.ps1 -Action Publish
-dotnet test HoneyDrunk.Identity/HoneyDrunk.Identity.Tests --configuration Release
-dotnet run --project HoneyDrunk.Identity/HoneyDrunk.Identity.Api
+dotnet test tests/HoneyDrunk.Identity.Tests --configuration Release
+dotnet run --project src/HoneyDrunk.Identity.Api
 ```
 
 The development database is `HoneyDrunkIdentity` on `(localdb)\PocketQuests`. Tests use uniquely named databases on MSSQLLocalDB on Windows or an isolated SQL Server container on Linux. Missing SQL fails the tests instead of skipping them. Pocket Quests' AppHost can start this service from an explicitly configured checkout.
