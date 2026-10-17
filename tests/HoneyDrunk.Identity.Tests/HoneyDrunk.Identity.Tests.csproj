@@ -21,13 +21,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\HoneyDrunk.Identity.Api\HoneyDrunk.Identity.Api.csproj" />
-    <ProjectReference Include="..\HoneyDrunk.Identity.Client\HoneyDrunk.Identity.Client.csproj" />
+    <ProjectReference Include="..\..\src\HoneyDrunk.Identity.Api\HoneyDrunk.Identity.Api.csproj" />
+    <ProjectReference Include="..\..\src\HoneyDrunk.Identity.Client\HoneyDrunk.Identity.Client.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.SqlServer.DacFx" Version="170.5.96" />
-    <ProjectReference Include="../HoneyDrunk.Identity.Database/HoneyDrunk.Identity.Database.sqlproj" ReferenceOutputAssembly="false" />
-    <None Include="../HoneyDrunk.Identity.Database/bin/$(Configuration)/HoneyDrunk.Identity.Database.dacpac" Link="HoneyDrunk.Identity.Database.dacpac" CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="../../src/HoneyDrunk.Identity.Database/HoneyDrunk.Identity.Database.sqlproj" ReferenceOutputAssembly="false" />
+    <None Include="../../src/HoneyDrunk.Identity.Database/bin/$(Configuration)/HoneyDrunk.Identity.Database.dacpac" Link="HoneyDrunk.Identity.Database.dacpac" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

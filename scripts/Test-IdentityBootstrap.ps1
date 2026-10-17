@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
- [string]$Package="$PSScriptRoot/../HoneyDrunk.Identity/HoneyDrunk.Identity.Database/bin/Release/HoneyDrunk.Identity.Database.dacpac"
+ [string]$Package="$PSScriptRoot/../src/HoneyDrunk.Identity.Database/bin/Release/HoneyDrunk.Identity.Database.dacpac"
 )
 # Exercises only a uniquely named disposable LocalDB database; no Azure login.
 $ErrorActionPreference='Stop'

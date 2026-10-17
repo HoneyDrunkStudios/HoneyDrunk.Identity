@@ -81,7 +81,7 @@ jobs:
       dotnet-version: '10.0.x'
       configuration: 'Release'
       runs-on: 'ubuntu-latest'
-      project-path: './HoneyDrunk.Identity/HoneyDrunk.Identity.slnx'
+      project-path: './HoneyDrunk.Identity.slnx'
       enable-nuget-pack: true
       enable-nuget-publish: false
       nuget-source: 'https://api.nuget.org/v3/index.json'

@@ -1,6 +1,6 @@
 # Code organization
 
-Open `HoneyDrunk.Identity/HoneyDrunk.Identity.slnx`. Projects sit beside the solution; each project groups implementation files by responsibility.
+Open `HoneyDrunk.Identity.slnx`. Production projects live under `src/` and tests under `tests/`; each project groups implementation files by responsibility.
 
 | Project | Folders and responsibility |
 | --- | --- |

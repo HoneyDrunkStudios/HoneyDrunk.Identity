@@ -18,11 +18,11 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - name: Build Azure SQL target without platform compatibility overrides
-        run: dotnet build HoneyDrunk.Identity/HoneyDrunk.Identity.Database/HoneyDrunk.Identity.Database.sqlproj -c Release -p:DSP=Microsoft.Data.Tools.Schema.Sql.SqlAzureV12DatabaseSchemaProvider -p:OutputPath=bin/AzureSql/ -p:RestoreLockedMode=true
+        run: dotnet build src/HoneyDrunk.Identity.Database/HoneyDrunk.Identity.Database.sqlproj -c Release -p:DSP=Microsoft.Data.Tools.Schema.Sql.SqlAzureV12DatabaseSchemaProvider -p:OutputPath=bin/AzureSql/ -p:RestoreLockedMode=true
       - name: Build non-root API image (no push or Azure login)
         run: docker build --tag identity-validation .
       - uses: actions/upload-artifact@v6
         with:
           name: identity-azure-sql
-          path: HoneyDrunk.Identity/HoneyDrunk.Identity.Database/bin/AzureSql/*.dacpac
+          path: src/HoneyDrunk.Identity.Database/bin/AzureSql/*.dacpac
           if-no-files-found: error
