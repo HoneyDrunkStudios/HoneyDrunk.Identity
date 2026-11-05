@@ -11,6 +11,7 @@ using HoneyDrunk.Identity.Api.Configuration;
 using HoneyDrunk.Identity.Api.Health;
 using HoneyDrunk.Identity.Auditing;
 using HoneyDrunk.Identity.Persistence.Context;
+using HoneyDrunk.Identity.Persistence.Health;
 using HoneyDrunk.Identity.Providers.Entra.Accounts;
 using HoneyDrunk.Identity.Providers.Entra.Configuration;
 using HoneyDrunk.Kernel.Abstractions.Identity;
@@ -33,11 +34,12 @@ if (builder.Configuration["Entra:Graph:CredentialMode"] == "Certificate")
     node.AddVaultWithAzureKeyVaultBootstrap();
 builder.Services.AddDbContextFactory<IdentityDbContext>(options => options.UseSqlServer(
     builder.Configuration.GetConnectionString("identity") ?? throw new InvalidOperationException("Identity SQL connection is required.")));
-builder.Services.AddScoped<IUserDirectory, SqlUserDirectory>();
+builder.Services.AddScoped<IUserDirectory, SqlUserDirectoryDataService>();
 builder.Services.AddScoped<IUnitOfWork<IAuditDataContext>, IdentityAuditUnitOfWork>();
 builder.Services.AddHoneyDrunkAuditData();
-builder.Services.AddScoped<HoneyDrunk.Audit.Abstractions.IAuditLog, IdentityValidationAudit>();
-builder.Services.AddScoped<SqlAccountLifecycle>();
+builder.Services.AddScoped<HoneyDrunk.Audit.Abstractions.IAuditLog, IdentityValidationAuditDataService>();
+builder.Services.AddScoped<SqlAccountLifecycleUnitOfWork>();
+builder.Services.AddScoped<IdentityReadinessDataService>();
 builder.Services.Configure<LifecycleOptions>(builder.Configuration.GetSection("Lifecycle"));
 builder.Services.AddHoneyDrunkTelemetry();
 if (!builder.Environment.IsEnvironment("Testing"))

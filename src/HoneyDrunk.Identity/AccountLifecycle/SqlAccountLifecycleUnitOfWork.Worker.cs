@@ -6,8 +6,18 @@ using Microsoft.EntityFrameworkCore;
 namespace HoneyDrunk.Identity.AccountLifecycle;
 
 /// <summary>Retryable worker operations; no public endpoint accepts arbitrary account IDs for erasure.</summary>
-public sealed partial class SqlAccountLifecycle
+public sealed partial class SqlAccountLifecycleUnitOfWork
 {
+    /// <summary>Reads at most twenty due accounts for the next maintenance cycle.</summary>
+    /// <param name="token">Cancellation for the pending-account query.</param>
+    /// <returns>Account identifiers ordered by their next retry time.</returns>
+    public Task<string[]> Pending(CancellationToken token = default)
+    {
+        var now = clock.GetUtcNow();
+        return db.Users.Where(u => (u.State != "Active" || db.Deliveries.Any(d => d.UserId == u.UserId && !d.Acknowledged)) && (u.NextAttemptAt == null || u.NextAttemptAt <= now))
+            .OrderBy(u => u.NextAttemptAt).Select(u => u.UserId).Take(20).ToArrayAsync(token);
+    }
+
     /// <summary>Advances one existing request under the same lock as recovery and linking.</summary>
     /// <param name="userId">An account selected by the trusted worker.</param>
     /// <param name="token">Cancellation.</param>
@@ -112,7 +122,7 @@ public sealed partial class SqlAccountLifecycle
     private async Task Purge(string userId, List<SubjectEntity> subjects, CancellationToken token)
     {
         var rawSubjects = subjects.Select(s => s.Subject).Where(s => !string.IsNullOrEmpty(s)).ToArray();
-        var digests = subjects.Select(s => s.SubjectKey).Append(SqlUserDirectory.Hash(userId)).ToArray();
+        var digests = subjects.Select(s => s.SubjectKey).Append(SqlUserDirectoryDataService.Hash(userId)).ToArray();
 
         // Scoped exception to append-only writes: user data and historical validation
         // records are erased together; unrelated accounts and anonymous aggregates remain.

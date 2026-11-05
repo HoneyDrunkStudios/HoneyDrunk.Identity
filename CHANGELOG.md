@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Update HoneyDrunk.Standards to 0.4.1 to consume the architecture analyzer and TODO issue-link fixes.
+- Name the SQL user directory and validation audit implementations as data services and the account lifecycle transaction boundary as a unit of work (HD0102). Source consumers must use `SqlUserDirectoryDataService`, `IdentityValidationAuditDataService` and `SqlAccountLifecycleUnitOfWork`; published Client/Abstractions and HTTP/event contracts are unchanged.
+
 ## [0.1.0-alpha.4] - Unreleased candidate
 
 - Refuse persisted Query Store hints, forced plans and plan guides throughout Azure database initialization; preserve ordinary query history and cover tuning drift/rollback with offline tests.

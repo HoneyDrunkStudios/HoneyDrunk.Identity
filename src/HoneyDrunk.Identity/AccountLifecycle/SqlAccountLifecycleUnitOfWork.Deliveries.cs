@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace HoneyDrunk.Identity.AccountLifecycle;
 
 /// <summary>Reconciles durable delivery routes under the account lifecycle transaction lock.</summary>
-public sealed partial class SqlAccountLifecycle
+public sealed partial class SqlAccountLifecycleUnitOfWork
 {
     private async Task<List<LifecycleDeliveryEntity>> ReconcileDeliveries(UserEntity user, CancellationToken token)
     {

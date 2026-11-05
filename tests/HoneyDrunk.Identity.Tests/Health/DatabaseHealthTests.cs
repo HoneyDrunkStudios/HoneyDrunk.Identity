@@ -1,5 +1,6 @@
 using HoneyDrunk.Identity.Api.Health;
 using HoneyDrunk.Identity.Persistence.Context;
+using HoneyDrunk.Identity.Persistence.Health;
 using HoneyDrunk.Identity.Tests.Fixtures;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +19,7 @@ public sealed class DatabaseHealthTests(SqlServerFixture sql) : IClassFixture<Sq
         using var cancellation = new CancellationTokenSource();
         await cancellation.CancelAsync();
 
-        var result = await DatabaseHealthEndpoint.Check(db, cancellation.Token);
+        var result = await DatabaseHealthEndpoint.Check(new IdentityReadinessDataService(db), cancellation.Token);
 
         Assert.Equal(StatusCodes.Status503ServiceUnavailable, Assert.IsType<IStatusCodeHttpResult>(result, exactMatch: false).StatusCode);
     }
@@ -31,15 +32,15 @@ public sealed class DatabaseHealthTests(SqlServerFixture sql) : IClassFixture<Sq
         await using var db = new IdentityDbContext(new DbContextOptionsBuilder<IdentityDbContext>().UseSqlServer(sql.NewDatabaseConnection()).Options);
         try
         {
-            var absent = await DatabaseHealthEndpoint.Check(db, CancellationToken.None);
+            var absent = await DatabaseHealthEndpoint.Check(new IdentityReadinessDataService(db), CancellationToken.None);
             Assert.Equal(StatusCodes.Status503ServiceUnavailable, Assert.IsType<IStatusCodeHttpResult>(absent, exactMatch: false).StatusCode);
 
             await DatabaseSchema.DeployAsync(db.Database);
-            var ready = await DatabaseHealthEndpoint.Check(db, CancellationToken.None);
+            var ready = await DatabaseHealthEndpoint.Check(new IdentityReadinessDataService(db), CancellationToken.None);
             Assert.Equal(StatusCodes.Status200OK, Assert.IsType<IStatusCodeHttpResult>(ready, exactMatch: false).StatusCode);
 
             await db.Database.ExecuteSqlRawAsync("DROP TABLE [dbo].[Subjects]");
-            var missingSchema = await DatabaseHealthEndpoint.Check(db, CancellationToken.None);
+            var missingSchema = await DatabaseHealthEndpoint.Check(new IdentityReadinessDataService(db), CancellationToken.None);
             Assert.Equal(StatusCodes.Status503ServiceUnavailable, Assert.IsType<IStatusCodeHttpResult>(missingSchema, exactMatch: false).StatusCode);
         }
         finally

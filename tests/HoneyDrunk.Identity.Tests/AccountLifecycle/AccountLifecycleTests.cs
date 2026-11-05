@@ -58,7 +58,7 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
         await using (var db = Context())
         {
             Assert.Equal(first.RecoveryDeadline, (await Service(db).Request(new(alice, clock.Now), true)).RecoveryDeadline);
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => new SqlUserDirectory(db, clock, external).Resolve(alice));
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => new SqlUserDirectoryDataService(db, clock, external).Resolve(alice));
         }
 
         await using (var db = Context())
@@ -66,7 +66,7 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
         await using (var db = Context())
             Assert.Equal("Active", (await Service(db).Cancel(new(alice, clock.Now), true)).State);
         await using (var db = Context())
-            Assert.Equal(user.UserId, (await new SqlUserDirectory(db, clock, external).Resolve(alice)).UserId);
+            Assert.Equal(user.UserId, (await new SqlUserDirectoryDataService(db, clock, external).Resolve(alice)).UserId);
         await using (var db = Context())
             first = await Service(db).Request(new(alice, clock.Now), true);
         clock.Now = first.RecoveryDeadline!.Value;
@@ -129,7 +129,7 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
             Assert.Empty(await db.Deliveries.ToListAsync());
             Assert.Empty(await db.Set<OutboxMessage>().ToListAsync());
             Assert.Equal(verified, (await db.Erasures.SingleAsync()).ErasedAt);
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => new SqlUserDirectory(db, clock, external).Resolve(alice));
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => new SqlUserDirectoryDataService(db, clock, external).Resolve(alice));
         }
 
         clock.Now = verified.AddDays(35).AddTicks(-1);
@@ -194,7 +194,7 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
         await using (var db = Context())
             Assert.Equal(user.UserId, (await Service(db).Link(new(alice, clock.Now), new(added, clock.Now))).UserId);
         await using (var db = Context())
-            Assert.Equal(user.UserId, (await new SqlUserDirectory(db, clock, external).Resolve(added)).UserId);
+            Assert.Equal(user.UserId, (await new SqlUserDirectoryDataService(db, clock, external).Resolve(added)).UserId);
         await using (var db = Context())
             await Assert.ThrowsAsync<InvalidOperationException>(() => Service(db).Unlink(new(alice, clock.Now), new(alice, clock.Now)));
         await using (var db = Context())
@@ -218,7 +218,7 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
         LifecycleAck oldAck;
         await using (var db = Context())
         {
-            var service = new SqlAccountLifecycle(db, clock, external, Options.Create(original));
+            var service = new SqlAccountLifecycleUnitOfWork(db, clock, external, Options.Create(original));
             await service.Request(new(alice, clock.Now), true);
             var delivery = await db.Deliveries.SingleAsync(d => d.UserId == user.UserId && d.Consumer == "pocketquests");
             oldAck = new(user.UserId, delivery.Version, delivery.Consumer, delivery.Acknowledgment);
@@ -230,7 +230,7 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
         clock.Now = operation == "erase" ? clock.Now.AddDays(30) : clock.Now.AddMinutes(1);
         await using (var db = Context())
         {
-            var service = new SqlAccountLifecycle(db, clock, external, Options.Create(current));
+            var service = new SqlAccountLifecycleUnitOfWork(db, clock, external, Options.Create(current));
             if (operation == "recover")
                 await service.Cancel(new(alice, clock.Now), true);
             else
@@ -250,7 +250,7 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
             Assert.Equal(2, messages.Count);
             Assert.All(messages, m => Assert.Contains(JsonSerializer.Deserialize<Dictionary<string, string>>(m.Headers!)![OutboxHeaderNames.Destination], current.Consumers.Values));
             Assert.Equal(2, await db.Set<OutboxMessage>().CountAsync(m => m.Payload.Contains(other.UserId)));
-            var service = new SqlAccountLifecycle(db, clock, external, Options.Create(current));
+            var service = new SqlAccountLifecycleUnitOfWork(db, clock, external, Options.Create(current));
             if (operation == "retry")
                 await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.Acknowledge(oldAck));
             else
@@ -263,7 +263,7 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
         clock.Now = clock.Now.AddMinutes(2);
         await using (var db = Context())
         {
-            await new SqlAccountLifecycle(db, clock, external, Options.Create(current)).Process(user.UserId);
+            await new SqlAccountLifecycleUnitOfWork(db, clock, external, Options.Create(current)).Process(user.UserId);
             Assert.Equal(operation != "erase", await db.Users.AnyAsync(u => u.UserId == user.UserId));
             Assert.True(await db.Users.AnyAsync(u => u.UserId == other.UserId));
         }
@@ -286,12 +286,12 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
 
     private IdentityDbContext Context() => new(new DbContextOptionsBuilder<IdentityDbContext>().UseSqlServer(connection).Options);
 
-    private SqlAccountLifecycle Service(IdentityDbContext db) => new(db, clock, external, Options.Create(new LifecycleOptions { DeliveryEnabled = true, Consumers = { ["pocketquests"] = "pocketquests-lifecycle" } }));
+    private SqlAccountLifecycleUnitOfWork Service(IdentityDbContext db) => new(db, clock, external, Options.Create(new LifecycleOptions { DeliveryEnabled = true, Consumers = { ["pocketquests"] = "pocketquests-lifecycle" } }));
 
     private async Task<UserRecord> Seed(ExternalSubject subject)
     {
         await using var db = Context();
-        return await new SqlUserDirectory(db, clock, external).Resolve(subject);
+        return await new SqlUserDirectoryDataService(db, clock, external).Resolve(subject);
     }
 
     private async Task Process(string userId)

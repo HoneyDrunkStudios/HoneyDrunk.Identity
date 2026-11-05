@@ -128,7 +128,7 @@ public sealed class LifecycleMaintenanceTests(SqlServerFixture sql) : IAsyncLife
             }
 
             await using (var scope = host.Services.CreateAsyncScope())
-                await Assert.ThrowsAsync<InvalidOperationException>(() => scope.ServiceProvider.GetRequiredService<SqlAccountLifecycle>().Request(new(subject, clock.Now), true));
+                await Assert.ThrowsAsync<InvalidOperationException>(() => scope.ServiceProvider.GetRequiredService<SqlAccountLifecycleUnitOfWork>().Request(new(subject, clock.Now), true));
 
             clock.Now = clock.Now.AddDays(1);
             await WaitFor(async () =>
@@ -188,7 +188,7 @@ public sealed class LifecycleMaintenanceTests(SqlServerFixture sql) : IAsyncLife
             if (interceptor is not null)
                 options.AddInterceptors(interceptor);
         });
-        builder.Services.AddScoped<SqlAccountLifecycle>();
+        builder.Services.AddScoped<SqlAccountLifecycleUnitOfWork>();
         builder.Services.Configure<LifecycleOptions>(options => options.Consumers["pocketquests"] = "test-only-private-queue");
         return builder;
     }
@@ -197,9 +197,9 @@ public sealed class LifecycleMaintenanceTests(SqlServerFixture sql) : IAsyncLife
     {
         var subject = new ExternalSubject("https://identity.test", name, Guid.NewGuid().ToString());
         await using var db = Context();
-        var user = await new SqlUserDirectory(db, clock, external).Resolve(subject);
+        var user = await new SqlUserDirectoryDataService(db, clock, external).Resolve(subject);
         if (requestDeletion)
-            await new SqlAccountLifecycle(db, clock, external, Options.Create(new LifecycleOptions { DeliveryEnabled = true, Consumers = { ["pocketquests"] = "test-only-private-queue" } })).Request(new(subject, clock.Now), true);
+            await new SqlAccountLifecycleUnitOfWork(db, clock, external, Options.Create(new LifecycleOptions { DeliveryEnabled = true, Consumers = { ["pocketquests"] = "test-only-private-queue" } })).Request(new(subject, clock.Now), true);
         return (user, subject);
     }
 

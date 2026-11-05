@@ -17,7 +17,7 @@ using System.Text.Json;
 namespace HoneyDrunk.Identity.AccountLifecycle;
 
 /// <summary>Serializes verified account lifecycle transitions and their transactional delivery intents.</summary>
-public sealed partial class SqlAccountLifecycle(IdentityDbContext db, TimeProvider clock, IExternalAccounts external, IOptions<LifecycleOptions> options)
+public sealed partial class SqlAccountLifecycleUnitOfWork(IdentityDbContext db, TimeProvider clock, IExternalAccounts external, IOptions<LifecycleOptions> options)
 {
     /// <summary>Reads an existing account without restoring ordinary access.</summary>
     /// <param name="subject">Validated owner identity.</param>
@@ -121,7 +121,7 @@ public sealed partial class SqlAccountLifecycle(IdentityDbContext db, TimeProvid
 
     private async Task<UserEntity> Owner(ExternalSubject subject, CancellationToken token)
     {
-        var key = SqlUserDirectory.SubjectKey(subject);
+        var key = SqlUserDirectoryDataService.SubjectKey(subject);
         var mapping = await db.Subjects.SingleOrDefaultAsync(s => s.SubjectKey == key, token)
             ?? throw new UnauthorizedAccessException("Account does not exist.");
         if (mapping.ObjectId is not null && mapping.ObjectId != subject.ObjectId)

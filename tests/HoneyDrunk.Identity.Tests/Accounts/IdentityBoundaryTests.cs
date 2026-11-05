@@ -135,12 +135,12 @@ public sealed class IdentityBoundaryTests(SqlServerFixture sql) : IAsyncLifetime
         await using var db = Context();
         await db.Database.ExecuteSqlRawAsync("CREATE TRIGGER RejectIdentityAudit ON AuditRecords AFTER INSERT AS BEGIN THROW 51001, 'Injected test failure', 1; END;");
         await using (var failing = Context())
-            await Assert.ThrowsAsync<DbUpdateException>(() => new SqlUserDirectory(failing, TimeProvider.System, new TestExternalAccounts()).Resolve(new("https://identity.test", "alice")));
+            await Assert.ThrowsAsync<DbUpdateException>(() => new SqlUserDirectoryDataService(failing, TimeProvider.System, new TestExternalAccounts()).Resolve(new("https://identity.test", "alice")));
         Assert.Equal(0, await db.Users.CountAsync());
         Assert.Equal(0, await db.Subjects.CountAsync());
         Assert.Equal(0, await db.Audit.CountAsync());
         await db.Database.ExecuteSqlRawAsync("DROP TRIGGER RejectIdentityAudit;");
-        await new SqlUserDirectory(db, TimeProvider.System, new TestExternalAccounts()).Resolve(new("https://identity.test", "alice"));
+        await new SqlUserDirectoryDataService(db, TimeProvider.System, new TestExternalAccounts()).Resolve(new("https://identity.test", "alice"));
         Assert.Equal(1, await db.Users.CountAsync());
         Assert.Equal(1, await db.Audit.CountAsync());
     }
