@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace HoneyDrunk.Identity.Tests.Accounts;
 
 /// <summary>Executable regression coverage for identity persistence tests.</summary>
+/// <param name="sql">The isolated SQL integration fixture.</param>
 public sealed class IdentityPersistenceTests(SqlServerFixture sql) : IAsyncLifetime, IClassFixture<SqlServerFixture>
 {
     private readonly string connection = sql.NewDatabaseConnection();

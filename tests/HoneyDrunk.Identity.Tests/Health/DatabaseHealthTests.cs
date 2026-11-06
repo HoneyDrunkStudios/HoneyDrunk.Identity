@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace HoneyDrunk.Identity.Tests.Health;
 
 /// <summary>Checks readiness against SQL and cancelled startup probes.</summary>
+/// <param name="sql">The isolated SQL integration fixture.</param>
 public sealed class DatabaseHealthTests(SqlServerFixture sql) : IClassFixture<SqlServerFixture>
 {
     /// <summary>A cancelled SQL probe must return unavailable without escaping into the debugger.</summary>

@@ -5,6 +5,7 @@ using HoneyDrunk.Transport.Abstractions;
 namespace HoneyDrunk.Identity.Api.AccountLifecycle.Messaging;
 
 /// <summary>Private receiver; the SQL coordinator also verifies the per-consumer capability.</summary>
+/// <param name="lifecycle">The account lifecycle acknowledgment service.</param>
 public sealed class LifecycleAckHandler(SqlAccountLifecycleDataService lifecycle) : IMessageHandler<LifecycleAck>
 {
     /// <inheritdoc />

@@ -16,6 +16,7 @@ using Xunit.Abstractions;
 namespace HoneyDrunk.Identity.Tests.Health;
 
 /// <summary>Exercises actual protobuf exports through the application's registration.</summary>
+/// <param name="output">The test output helper.</param>
 public sealed class TelemetryExportTests(ITestOutputHelper output)
 {
     /// <summary>All signals reach their distinct Pulse path with HoneyDrunk resource identity.</summary>

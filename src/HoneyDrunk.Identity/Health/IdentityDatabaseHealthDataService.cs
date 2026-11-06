@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace HoneyDrunk.Identity.Health;
 
 /// <summary>Checks connectivity and mapped schema access without reading account data.</summary>
+/// <param name="db">The scoped Identity database context.</param>
 public sealed class IdentityDatabaseHealthDataService(IdentityDbContext db)
 {
     /// <summary>Verifies connectivity and zero-row access to every mapped lifecycle table.</summary>

@@ -54,9 +54,9 @@
       },
       "HoneyDrunk.Standards": {
         "type": "Direct",
-        "requested": "[0.4.3, )",
-        "resolved": "0.4.3",
-        "contentHash": "Kpb5XuTGHncmsSvcN+Fs0nF3y0bzr0PDN79QIOmrO8Y1kHMJ6VYBlq+8L7Jr2R+oMp1Ew50PlqxcRFZURmu3yw=="
+        "requested": "[0.4.4, )",
+        "resolved": "0.4.4",
+        "contentHash": "oE1wWAd5LNEnEulsJNvyIYEimQUhs9Q40IqE04I5qJ4ij36f05OflFk9Y9trKJohevZyWvlRHGISZvOhU6lvHA=="
       },
       "Microsoft.EntityFrameworkCore.SqlServer": {
         "type": "Direct",

@@ -9,6 +9,9 @@ using System.Text.Json;
 namespace HoneyDrunk.Identity.Providers.Entra.Accounts;
 
 /// <summary>Managed-identity Graph credential lifecycle; never trusts client-supplied object identifiers.</summary>
+/// <param name="http">The HTTP client for this provider integration.</param>
+/// <param name="credential">The configured Azure token credential.</param>
+/// <param name="configuration">The external account provider configuration.</param>
 public sealed class GraphExternalAccounts(HttpClient http, TokenCredential credential, IConfiguration configuration) : IExternalAccounts
 {
     private readonly Uri baseUri = ReadBaseUri(configuration);

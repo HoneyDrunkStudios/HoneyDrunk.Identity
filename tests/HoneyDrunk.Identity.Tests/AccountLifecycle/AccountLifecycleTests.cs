@@ -13,6 +13,7 @@ using System.Text.Json;
 namespace HoneyDrunk.Identity.Tests.AccountLifecycle;
 
 /// <summary>Real-SQL lifecycle, isolation, recovery, retry and restore acceptance coverage.</summary>
+/// <param name="sql">The isolated SQL integration fixture.</param>
 public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime, IClassFixture<SqlServerFixture>
 {
     private readonly string connection = sql.NewDatabaseConnection();

@@ -21,6 +21,7 @@ using Microsoft.Extensions.Options;
 namespace HoneyDrunk.Identity.Tests.AccountLifecycle;
 
 /// <summary>Real-SQL hosted maintenance retries and transport-independent retention boundaries.</summary>
+/// <param name="sql">The isolated SQL integration fixture.</param>
 public sealed class LifecycleMaintenanceTests(SqlServerFixture sql) : IAsyncLifetime, IClassFixture<SqlServerFixture>
 {
     private readonly string connection = sql.NewDatabaseConnection();

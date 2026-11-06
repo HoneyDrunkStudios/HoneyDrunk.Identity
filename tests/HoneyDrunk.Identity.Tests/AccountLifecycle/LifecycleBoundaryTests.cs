@@ -8,6 +8,7 @@ using System.Net.Http.Json;
 namespace HoneyDrunk.Identity.Tests.AccountLifecycle;
 
 /// <summary>HTTP authorization and recent-proof boundary tests using real JWT validation and SQL.</summary>
+/// <param name="sql">The isolated SQL integration fixture.</param>
 public sealed class LifecycleBoundaryTests(SqlServerFixture sql) : IAsyncLifetime, IClassFixture<SqlServerFixture>
 {
     private readonly string connection = sql.NewDatabaseConnection();

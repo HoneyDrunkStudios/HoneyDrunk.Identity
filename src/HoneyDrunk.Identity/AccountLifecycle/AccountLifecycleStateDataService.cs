@@ -14,6 +14,9 @@ using System.Text.Json;
 namespace HoneyDrunk.Identity.AccountLifecycle;
 
 /// <summary>Persists lifecycle state, delivery routes and transactional outbox evidence on the caller's context.</summary>
+/// <param name="db">The scoped Identity database context.</param>
+/// <param name="clock">The clock used for lifecycle and expiry timestamps.</param>
+/// <param name="options">The configured component options.</param>
 public sealed class AccountLifecycleStateDataService(IdentityDbContext db, TimeProvider clock, IOptions<LifecycleOptions> options)
 {
     /// <summary>Reads one bounded retry batch without resolving provider clients.</summary>

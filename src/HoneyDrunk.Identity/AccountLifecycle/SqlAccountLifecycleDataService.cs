@@ -10,7 +10,11 @@ using System.Security.Cryptography;
 
 namespace HoneyDrunk.Identity.AccountLifecycle;
 
-/// <summary>Serializes verified account lifecycle transitions and their transactional delivery intents.</summary>
+/// <content>Serializes verified account lifecycle transitions and their transactional delivery intents.</content>
+/// <param name="db">The scoped Identity database context.</param>
+/// <param name="clock">The clock used for lifecycle and expiry timestamps.</param>
+/// <param name="external">The external account provider.</param>
+/// <param name="options">The configured component options.</param>
 public sealed partial class SqlAccountLifecycleDataService(IdentityDbContext db, TimeProvider clock, IExternalAccounts external, IOptions<LifecycleOptions> options)
 {
     private readonly AccountLifecycleStateDataService state = new(db, clock, options);
