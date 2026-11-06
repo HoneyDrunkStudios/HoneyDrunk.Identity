@@ -15,6 +15,8 @@ Open `HoneyDrunk.Identity.slnx`. Production projects live under `src/` and tests
 
 Persistence types end in `Entity`, such as `UserEntity`. Consumer-facing account contracts, such as `UserRecord`, have no persistence suffix. Each table mapping has its own `IEntityTypeConfiguration<T>` implementation; the context discovers those configurations from its assembly. The shared Audit and Outbox packages retain their own record types.
 
+SQL implementation roles use the `DataService` suffix required by Standards 0.4.3: `SqlUserDirectoryDataService`, `SqlAccountLifecycleDataService`, and `IdentityValidationAuditDataService`. Lifecycle state, delivery reconciliation, audit and outbox mechanics live in `AccountLifecycleStateDataService` on the caller's same scoped context and transaction. The worker uses its bounded retry query without resolving external provider clients. `Health/IdentityDatabaseHealthDataService` owns the zero-row schema/readiness probes. These server implementation names are not part of the published Client or Abstractions packages.
+
 Namespaces follow folders. Pocket Quests source references have been updated with this refactor. This is a source-level change to the unreleased Identity contracts; consumers using an older packaged candidate need a matching updated package before adopting the new namespaces.
 
 The SQL project owns schema deployment and preserves existing table names. Integration tests deploy its DACPAC instead of EF migrations. See [database project](database-project.md) for publishing and data-script conventions.

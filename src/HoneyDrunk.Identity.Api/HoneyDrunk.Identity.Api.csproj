@@ -6,9 +6,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="HoneyDrunk.Telemetry.OpenTelemetry" Version="0.4.1" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
-    <PackageReference Include="HoneyDrunk.Vault.Providers.AzureKeyVault" Version="0.8.1" />
+    <PackageReference Include="HoneyDrunk.Telemetry.OpenTelemetry" Version="0.4.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
+    <PackageReference Include="HoneyDrunk.Vault.Providers.AzureKeyVault" Version="0.8.2" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -19,7 +19,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HoneyDrunk.Data.Outbox.Dispatcher" Version="0.7.1" />
-    <PackageReference Include="HoneyDrunk.Transport.AzureServiceBus" Version="0.7.2" />
+    <PackageReference Include="HoneyDrunk.Data.Outbox.Dispatcher" Version="0.7.2" />
+    <PackageReference Include="HoneyDrunk.Transport.AzureServiceBus" Version="0.7.3" />
   </ItemGroup>
 </Project>

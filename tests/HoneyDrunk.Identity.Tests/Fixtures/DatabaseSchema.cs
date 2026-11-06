@@ -8,7 +8,24 @@ namespace HoneyDrunk.Identity.Tests.Fixtures;
 /// <summary>Deploys the production SQL project into isolated integration-test databases.</summary>
 internal static class DatabaseSchema
 {
-    internal static Task DeployAsync(DatabaseFacade database) => Task.Run(() =>
+    private static readonly SemaphoreSlim DeploymentGate = new(1, 1);
+
+    internal static async Task DeployAsync(DatabaseFacade database)
+    {
+        // Concurrent DacFx CREATE DATABASE operations compete for SQL's exclusive model lock.
+        // Serialize fixture provisioning; application concurrency tests remain unchanged.
+        await DeploymentGate.WaitAsync();
+        try
+        {
+            await Task.Run(() => Deploy(database));
+        }
+        finally
+        {
+            DeploymentGate.Release();
+        }
+    }
+
+    private static void Deploy(DatabaseFacade database)
     {
         var connection = new SqlConnectionStringBuilder(database.GetConnectionString());
         if (!connection.InitialCatalog.StartsWith("Identity_Tests_", StringComparison.Ordinal))
@@ -26,5 +43,5 @@ internal static class DatabaseSchema
 
         // A pre-deployment readiness probe can leave a cached login failure for this database.
         SqlConnection.ClearPool((SqlConnection)database.GetDbConnection());
-    });
+    }
 }

@@ -14,7 +14,7 @@ Open `HoneyDrunk.Identity.slnx` in Visual Studio. Production projects live under
 - API and Entra provider: validate issuer, audience, signature, lifetime and the exact delegated `access_as_user` scope before resolving a stable account. Link/unlink proofs use the same scope requirement. User identity is based on issuer/subject, never an email match.
 - Runtime: directory resolution, account linking, recent-proof deletion/recovery, durable lifecycle intent delivery and consumer acknowledgments. Deletion fails closed without configured private transport and consumers. Provider and consumer failures retain account access restrictions.
 - SQL Server database project: table definitions, data scripts and DACPAC publish profiles. EF Core handles queries and saves, with no EF migration history required for schema deployment.
-- Client and Abstractions: independent NuGet candidates, version **0.1.0-alpha.4**. These are not published packages. Runtime/API/provider projects are not packable.
+- Client and Abstractions: independent prerelease NuGet packages, version **0.1.0-alpha.5**. A package release does not establish production deployment or native/provider acceptance. Runtime/API/provider projects are not packable.
 
 Kernel supplies trusted request context; Auth validates credentials; Data and Audit.Data persist account changes and canonical audit records transactionally; Pulse exports telemetry. Public headers cannot assign internal ownership. Erasure has a scoped audit-data exception and recovery markers; production backup/retention enforcement still requires operational validation.
 

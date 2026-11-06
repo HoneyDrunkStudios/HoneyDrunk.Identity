@@ -1,5 +1,4 @@
 using HoneyDrunk.Identity.AccountLifecycle;
-using HoneyDrunk.Identity.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -18,18 +17,17 @@ public sealed class LifecycleWorker(IServiceScopeFactory scopes, ILogger<Lifecyc
                 await using var query = scopes.CreateAsyncScope();
                 if (query.ServiceProvider.GetRequiredService<IOptions<LifecycleOptions>>().Value.DeliveryEnabled)
                 {
-                    var db = query.ServiceProvider.GetRequiredService<IdentityDbContext>();
+                    var state = query.ServiceProvider.GetRequiredService<AccountLifecycleStateDataService>();
                     var now = query.ServiceProvider.GetRequiredService<TimeProvider>().GetUtcNow();
-                    var pending = await db.Users.Where(u => (u.State != "Active" || db.Deliveries.Any(d => d.UserId == u.UserId && !d.Acknowledged)) && (u.NextAttemptAt == null || u.NextAttemptAt <= now))
-                        .OrderBy(u => u.NextAttemptAt).Select(u => u.UserId).Take(20).ToArrayAsync(stoppingToken);
+                    var pending = await state.PendingUserIds(now, stoppingToken);
                     foreach (var id in pending)
                     {
                         await using var scope = scopes.CreateAsyncScope();
-                        await scope.ServiceProvider.GetRequiredService<SqlAccountLifecycle>().Process(id, stoppingToken);
+                        await scope.ServiceProvider.GetRequiredService<SqlAccountLifecycleDataService>().Process(id, stoppingToken);
                     }
                 }
 
-                await query.ServiceProvider.GetRequiredService<SqlAccountLifecycle>().Prune(stoppingToken);
+                await query.ServiceProvider.GetRequiredService<SqlAccountLifecycleDataService>().Prune(stoppingToken);
             }
             catch (Exception error) when (error is System.Data.Common.DbException or DbUpdateException or InvalidOperationException or TimeoutException)
             {

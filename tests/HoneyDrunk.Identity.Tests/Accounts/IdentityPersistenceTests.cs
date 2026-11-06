@@ -74,11 +74,11 @@ public sealed class IdentityPersistenceTests(SqlServerFixture sql) : IAsyncLifet
         var results = await Task.WhenAll(Enumerable.Range(0, 8).Select(async _ =>
         {
             await using var context = CreateContext();
-            return await new SqlUserDirectory(context, TimeProvider.System, new TestExternalAccounts()).Resolve(subject);
+            return await new SqlUserDirectoryDataService(context, TimeProvider.System, new TestExternalAccounts()).Resolve(subject);
         }));
         Assert.Single(results.Select(result => result.UserId).Distinct());
         await using var restarted = CreateContext();
-        var directory = new SqlUserDirectory(restarted, TimeProvider.System, new TestExternalAccounts());
+        var directory = new SqlUserDirectoryDataService(restarted, TimeProvider.System, new TestExternalAccounts());
         Assert.Equal(results[0].UserId, (await directory.Resolve(subject)).UserId);
         Assert.NotEqual(results[0].UserId, (await directory.Resolve(subject with { Issuer = "https://another.test" })).UserId);
         Assert.Equal(2, await restarted.Users.CountAsync());
