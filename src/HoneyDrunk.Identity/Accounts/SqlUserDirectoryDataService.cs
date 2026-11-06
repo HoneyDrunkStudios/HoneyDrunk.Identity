@@ -14,6 +14,9 @@ using System.Text.Json;
 namespace HoneyDrunk.Identity.Accounts;
 
 /// <summary>Creates stable user mappings under a SQL transaction and account-specific lock.</summary>
+/// <param name="db">The scoped Identity database context.</param>
+/// <param name="clock">The clock used for lifecycle and expiry timestamps.</param>
+/// <param name="external">The external account provider.</param>
 public sealed class SqlUserDirectoryDataService(IdentityDbContext db, TimeProvider clock, IExternalAccounts external) : IUserDirectory
 {
     /// <inheritdoc />

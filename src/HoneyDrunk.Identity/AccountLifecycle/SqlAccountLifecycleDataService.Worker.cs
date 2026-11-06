@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HoneyDrunk.Identity.AccountLifecycle;
 
-/// <summary>Retryable worker operations; no public endpoint accepts arbitrary account IDs for erasure.</summary>
+/// <content>Retryable worker operations; no public endpoint accepts arbitrary account IDs for erasure.</content>
 public sealed partial class SqlAccountLifecycleDataService
 {
     /// <summary>Advances one existing request under the same lock as recovery and linking.</summary>

@@ -8,8 +8,17 @@ using System.Text.Encodings.Web;
 namespace HoneyDrunk.Identity.Providers.Entra.Authentication;
 
 /// <summary>Bridges HoneyDrunk.Auth validation into ASP.NET authentication.</summary>
-public sealed class EntraBearerHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder,
-    IAuthenticationProvider validator, EntraSigningKeys keys) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+/// <param name="options">The configured component options.</param>
+/// <param name="logger">The authentication logger.</param>
+/// <param name="encoder">The URL encoder used by the authentication handler.</param>
+/// <param name="validator">The Identity bearer token validator.</param>
+/// <param name="keys">The signing-key provider used for token validation.</param>
+public sealed class EntraBearerHandler(
+    IOptionsMonitor<AuthenticationSchemeOptions> options,
+    ILoggerFactory logger,
+    UrlEncoder encoder,
+    IAuthenticationProvider validator,
+    EntraSigningKeys keys) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     /// <inheritdoc />
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()

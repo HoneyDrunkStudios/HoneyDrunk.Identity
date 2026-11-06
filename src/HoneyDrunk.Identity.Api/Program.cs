@@ -108,9 +108,6 @@ app.MapGet("/client-configuration", () =>
     var scope = builder.Configuration["Entra:ApiScope"];
     var issuer = builder.Configuration["Entra:Issuer"];
     var audience = builder.Configuration["Entra:Audience"];
-    return string.IsNullOrWhiteSpace(authority) || string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(scope)
-        || string.IsNullOrWhiteSpace(issuer) || string.IsNullOrWhiteSpace(audience)
-        ? Results.Problem("Sign-in configuration is not ready.", statusCode: 503)
-        : Results.Ok(new { authority, clientId, scope });
+    return string.IsNullOrWhiteSpace(authority) || string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(scope) || string.IsNullOrWhiteSpace(issuer) || string.IsNullOrWhiteSpace(audience) ? Results.Problem("Sign-in configuration is not ready.", statusCode: 503) : Results.Ok(new { authority, clientId, scope });
 });
 await app.RunAsync();

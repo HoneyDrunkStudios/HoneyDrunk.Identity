@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace HoneyDrunk.Identity.Persistence.Context;
 
 /// <summary>Stores user mappings and canonical audit envelopes through HoneyDrunk.Data.</summary>
+/// <param name="options">The EF Core options for this Identity context.</param>
 public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : HoneyDrunkDbContext(options)
 {
     /// <summary>Gets the stable user directory.</summary>

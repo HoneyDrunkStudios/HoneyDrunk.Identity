@@ -5,6 +5,8 @@ using Microsoft.Extensions.Options;
 namespace HoneyDrunk.Identity.Api.AccountLifecycle;
 
 /// <summary>Periodic bounded retry; failed accounts remain inaccessible and expose a durable failure code.</summary>
+/// <param name="scopes">The factory for scoped lifecycle worker operations.</param>
+/// <param name="logger">The lifecycle worker logger.</param>
 public sealed class LifecycleWorker(IServiceScopeFactory scopes, ILogger<LifecycleWorker> logger) : BackgroundService
 {
     /// <inheritdoc />

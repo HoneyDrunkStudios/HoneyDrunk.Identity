@@ -33,8 +33,7 @@ public static class LifecycleEndpoints
 
     private static VerifiedLogin Login(ClaimsPrincipal principal)
     {
-        var issued = long.TryParse(principal.FindFirstValue("auth_time"), out var seconds) && seconds >= 0 && seconds <= 253402300799
-            ? DateTimeOffset.FromUnixTimeSeconds(seconds) : (DateTimeOffset?)null;
+        var issued = long.TryParse(principal.FindFirstValue("auth_time"), out var seconds) && seconds >= 0 && seconds <= 253402300799 ? DateTimeOffset.FromUnixTimeSeconds(seconds) : (DateTimeOffset?)null;
         return new(new(principal.FindFirstValue("iss") ?? throw new UnauthorizedAccessException(), principal.FindFirstValue("sub") ?? throw new UnauthorizedAccessException(), principal.FindFirstValue("oid")), issued);
     }
 

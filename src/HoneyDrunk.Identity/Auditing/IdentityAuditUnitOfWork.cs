@@ -7,6 +7,7 @@ using HoneyDrunk.Identity.Persistence.Context;
 namespace HoneyDrunk.Identity.Auditing;
 
 /// <summary>Maps the Audit persistence marker to Identity's owned SQL context.</summary>
+/// <param name="context">The scoped audit persistence context.</param>
 public sealed class IdentityAuditUnitOfWork(IdentityDbContext context) : IUnitOfWork<IAuditDataContext>
 {
     private readonly EfUnitOfWork<IdentityDbContext> inner = new(context);

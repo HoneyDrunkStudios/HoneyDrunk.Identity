@@ -7,6 +7,6 @@ namespace HoneyDrunk.Identity.Abstractions.AccountLifecycle;
 /// <param name="EffectiveAt">Authoritative transition time.</param>
 /// <param name="ExpiresAt">Reject delivery at or after this instant.</param>
 /// <param name="Consumer">Registered destination node.</param>
-/// <param name="PausedAt">Original deletion-request instant, including when cancellation arrives before inactivation.</param>
 /// <param name="Acknowledgment">Random capability bound to this account, version and consumer.</param>
+/// <param name="PausedAt">Original deletion-request instant, including when cancellation arrives before inactivation.</param>
 public sealed record LifecycleIntent(string UserId, long Version, string State, DateTimeOffset EffectiveAt, DateTimeOffset ExpiresAt, string Consumer, string Acknowledgment, DateTimeOffset PausedAt);

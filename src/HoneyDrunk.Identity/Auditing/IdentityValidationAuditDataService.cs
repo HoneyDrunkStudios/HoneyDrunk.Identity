@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace HoneyDrunk.Identity.Auditing;
 
 /// <summary>Scopes authentication evidence to erasable accounts; unknown credentials never retain token identifiers.</summary>
+/// <param name="factory">The factory for audit database contexts.</param>
 public sealed class IdentityValidationAuditDataService(IDbContextFactory<IdentityDbContext> factory) : IAuditLog
 {
     /// <inheritdoc />

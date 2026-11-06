@@ -12,6 +12,7 @@ using System.Text.Json;
 namespace HoneyDrunk.Identity.Tests.Accounts;
 
 /// <summary>Exercises real Auth, HTTP, SQL and Audit integration at the service boundary.</summary>
+/// <param name="sql">The isolated SQL integration fixture.</param>
 public sealed class IdentityBoundaryTests(SqlServerFixture sql) : IAsyncLifetime, IClassFixture<SqlServerFixture>
 {
     private readonly string connection = sql.NewDatabaseConnection();
