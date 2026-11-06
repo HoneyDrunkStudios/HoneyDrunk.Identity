@@ -15,15 +15,15 @@ public static class LifecycleEndpoints
     public static void MapLifecycle(this WebApplication app)
     {
         var routes = app.MapGroup("/users/me").RequireAuthorization();
-        routes.MapGet("/status", (ClaimsPrincipal principal, SqlAccountLifecycle lifecycle, CancellationToken token) =>
+        routes.MapGet("/status", (ClaimsPrincipal principal, SqlAccountLifecycleDataService lifecycle, CancellationToken token) =>
             Safe(async () => await lifecycle.Status(Login(principal).Subject, token)));
-        routes.MapPost("/deletion", (Confirmation request, ClaimsPrincipal principal, SqlAccountLifecycle lifecycle, CancellationToken token) =>
+        routes.MapPost("/deletion", (Confirmation request, ClaimsPrincipal principal, SqlAccountLifecycleDataService lifecycle, CancellationToken token) =>
             Safe(async () => await lifecycle.Request(Login(principal), request.Confirmed, token)));
-        routes.MapPost("/recovery", (Confirmation request, ClaimsPrincipal principal, SqlAccountLifecycle lifecycle, CancellationToken token) =>
+        routes.MapPost("/recovery", (Confirmation request, ClaimsPrincipal principal, SqlAccountLifecycleDataService lifecycle, CancellationToken token) =>
             Safe(async () => await lifecycle.Cancel(Login(principal), request.Confirmed, token)));
-        routes.MapPost("/link", (LinkProof request, ClaimsPrincipal principal, SqlAccountLifecycle lifecycle, IAuthenticationProvider validator, CancellationToken token) =>
+        routes.MapPost("/link", (LinkProof request, ClaimsPrincipal principal, SqlAccountLifecycleDataService lifecycle, IAuthenticationProvider validator, CancellationToken token) =>
             Safe(async () => await lifecycle.Link(Login(principal), await Additional(request.AccessToken, validator, token), token)));
-        routes.MapPost("/unlink", (LinkProof request, ClaimsPrincipal principal, SqlAccountLifecycle lifecycle, IAuthenticationProvider validator, CancellationToken token) =>
+        routes.MapPost("/unlink", (LinkProof request, ClaimsPrincipal principal, SqlAccountLifecycleDataService lifecycle, IAuthenticationProvider validator, CancellationToken token) =>
             Safe(async () =>
             {
                 await lifecycle.Unlink(Login(principal), await Additional(request.AccessToken, validator, token), token);

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace HoneyDrunk.Identity.AccountLifecycle;
 
 /// <summary>Retryable worker operations; no public endpoint accepts arbitrary account IDs for erasure.</summary>
-public sealed partial class SqlAccountLifecycle
+public sealed partial class SqlAccountLifecycleDataService
 {
     /// <summary>Advances one existing request under the same lock as recovery and linking.</summary>
     /// <param name="userId">An account selected by the trusted worker.</param>
@@ -14,15 +14,15 @@ public sealed partial class SqlAccountLifecycle
     /// <returns>Completion of one bounded attempt.</returns>
     public async Task Process(string userId, CancellationToken token = default)
     {
-        await using var tx = await Lock(token);
+        await using var tx = await state.Lock(token);
         var user = await db.Users.SingleOrDefaultAsync(u => u.UserId == userId, token);
         if (user is null || user.ChangedAt is null || user.NextAttemptAt > clock.GetUtcNow())
             return;
         var deliveries = user.State == "Inactive" && clock.GetUtcNow() >= user.RecoveryDeadline
-            ? await Transition(user, "Erasing", token)
-            : await ReconcileDeliveries(user, token);
+            ? await state.Transition(user, "Erasing", token)
+            : await state.ReconcileDeliveries(user, token);
         foreach (var delivery in deliveries.Where(d => !d.Acknowledged && d.ExpiresAt <= clock.GetUtcNow()))
-            Queue(user, delivery);
+            state.Queue(user, delivery);
         try
         {
             var subjects = await db.Subjects.Where(s => s.UserId == userId).ToListAsync(token);
@@ -56,7 +56,7 @@ public sealed partial class SqlAccountLifecycle
     {
         if (marker.ErasedAt > clock.GetUtcNow() || marker.ErasedAt <= clock.GetUtcNow().AddDays(-35))
             throw new ArgumentException("Restore requires a current verified erasure marker.");
-        await using var tx = await Lock(token);
+        await using var tx = await state.Lock(token);
         var subjects = await db.Subjects.Where(s => s.UserId == marker.UserId).ToListAsync(token);
         await Purge(marker.UserId, subjects, token);
         var existing = await db.Erasures.SingleOrDefaultAsync(m => m.UserId == marker.UserId, token);
@@ -73,7 +73,7 @@ public sealed partial class SqlAccountLifecycle
     /// <returns>The bounded retention cleanup.</returns>
     public async Task Prune(CancellationToken token = default)
     {
-        await using var tx = await Lock(token);
+        await using var tx = await state.Lock(token);
         var cutoff = clock.GetUtcNow().AddDays(-35);
         await db.Erasures.Where(m => m.ErasedAt <= cutoff).ExecuteDeleteAsync(token);
         var deliveredBefore = clock.GetUtcNow().AddHours(-1);
@@ -112,7 +112,7 @@ public sealed partial class SqlAccountLifecycle
     private async Task Purge(string userId, List<SubjectEntity> subjects, CancellationToken token)
     {
         var rawSubjects = subjects.Select(s => s.Subject).Where(s => !string.IsNullOrEmpty(s)).ToArray();
-        var digests = subjects.Select(s => s.SubjectKey).Append(SqlUserDirectory.Hash(userId)).ToArray();
+        var digests = subjects.Select(s => s.SubjectKey).Append(SqlUserDirectoryDataService.Hash(userId)).ToArray();
 
         // Scoped exception to append-only writes: user data and historical validation
         // records are erased together; unrelated accounts and anonymous aggregates remain.

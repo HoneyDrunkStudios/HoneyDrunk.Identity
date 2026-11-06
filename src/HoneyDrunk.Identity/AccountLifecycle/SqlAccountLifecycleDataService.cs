@@ -1,31 +1,27 @@
-using HoneyDrunk.Audit.Abstractions;
-using HoneyDrunk.Audit.Data;
-using HoneyDrunk.Data.Outbox;
 using HoneyDrunk.Identity.Abstractions.AccountLifecycle;
 using HoneyDrunk.Identity.Abstractions.Accounts;
 using HoneyDrunk.Identity.Abstractions.Authentication;
 using HoneyDrunk.Identity.Accounts;
 using HoneyDrunk.Identity.Persistence.Context;
 using HoneyDrunk.Identity.Persistence.Entities;
-using HoneyDrunk.Kernel.Abstractions.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
-using System.Text.Json;
 
 namespace HoneyDrunk.Identity.AccountLifecycle;
 
 /// <summary>Serializes verified account lifecycle transitions and their transactional delivery intents.</summary>
-public sealed partial class SqlAccountLifecycle(IdentityDbContext db, TimeProvider clock, IExternalAccounts external, IOptions<LifecycleOptions> options)
+public sealed partial class SqlAccountLifecycleDataService(IdentityDbContext db, TimeProvider clock, IExternalAccounts external, IOptions<LifecycleOptions> options)
 {
+    private readonly AccountLifecycleStateDataService state = new(db, clock, options);
+
     /// <summary>Reads an existing account without restoring ordinary access.</summary>
     /// <param name="subject">Validated owner identity.</param>
     /// <param name="token">Cancellation.</param>
     /// <returns>The account status.</returns>
     public async Task<AccountStatus> Status(ExternalSubject subject, CancellationToken token = default)
     {
-        await using var tx = await Lock(token);
+        await using var tx = await state.Lock(token);
         return View(await Owner(subject, token));
     }
 
@@ -39,7 +35,7 @@ public sealed partial class SqlAccountLifecycle(IdentityDbContext db, TimeProvid
         Fresh(login);
         if (!confirmed)
             throw new ArgumentException("Explicit deletion confirmation is required.");
-        await using var tx = await Lock(token);
+        await using var tx = await state.Lock(token);
         var user = await Owner(login.Subject, token);
         if (user.State == "Active")
         {
@@ -49,8 +45,8 @@ public sealed partial class SqlAccountLifecycle(IdentityDbContext db, TimeProvid
             user.DeletionPausedAt = user.RequestedAt;
             user.RecoveryDeadline = user.RequestedAt.Value.AddDays(30);
             user.SessionsRevoked = false;
-            await Transition(user, "Inactive", token);
-            Audit(user, "identity.deletion.requested");
+            await state.Transition(user, "Inactive", token);
+            state.Audit(user, "identity.deletion.requested");
             await db.SaveChangesAsync(token);
         }
 
@@ -68,16 +64,16 @@ public sealed partial class SqlAccountLifecycle(IdentityDbContext db, TimeProvid
         Fresh(login);
         if (!confirmed)
             throw new ArgumentException("Explicit recovery confirmation is required.");
-        await using var tx = await Lock(token);
+        await using var tx = await state.Lock(token);
         var user = await Owner(login.Subject, token);
         if (user.State != "Active")
         {
             if (user.State != "Inactive" || clock.GetUtcNow() >= user.RecoveryDeadline)
                 throw new InvalidOperationException("The recovery window has ended; erasure continues.");
-            await Transition(user, "Active", token);
+            await state.Transition(user, "Active", token);
             user.RequestedAt = null;
             user.RecoveryDeadline = null;
-            Audit(user, "identity.deletion.cancelled");
+            state.Audit(user, "identity.deletion.cancelled");
             await db.SaveChangesAsync(token);
         }
 
@@ -91,7 +87,7 @@ public sealed partial class SqlAccountLifecycle(IdentityDbContext db, TimeProvid
     /// <returns>The durable receipt write.</returns>
     public async Task Acknowledge(LifecycleAck ack, CancellationToken token = default)
     {
-        await using var tx = await Lock(token);
+        await using var tx = await state.Lock(token);
         var row = await db.Deliveries.SingleOrDefaultAsync(d => d.UserId == ack.UserId && d.Consumer == ack.Consumer, token);
         if (row is null || row.Version != ack.Version || row.ExpiresAt <= clock.GetUtcNow())
             return;
@@ -104,24 +100,9 @@ public sealed partial class SqlAccountLifecycle(IdentityDbContext db, TimeProvid
 
     private static AccountStatus View(UserEntity user) => new(user.UserId, user.State, user.RequestedAt, user.RecoveryDeadline, user.Version);
 
-    private async Task<IDbContextTransaction> Lock(CancellationToken token)
-    {
-        var tx = await db.Database.BeginTransactionAsync(token);
-        try
-        {
-            await db.Database.ExecuteSqlRawAsync("DECLARE @r int; EXEC @r=sys.sp_getapplock @Resource='identity:lifecycle',@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=10000; IF @r < 0 THROW 51000, 'Identity transaction busy.', 1;", token);
-            return tx;
-        }
-        catch
-        {
-            await tx.DisposeAsync();
-            throw;
-        }
-    }
-
     private async Task<UserEntity> Owner(ExternalSubject subject, CancellationToken token)
     {
-        var key = SqlUserDirectory.SubjectKey(subject);
+        var key = SqlUserDirectoryDataService.SubjectKey(subject);
         var mapping = await db.Subjects.SingleOrDefaultAsync(s => s.SubjectKey == key, token)
             ?? throw new UnauthorizedAccessException("Account does not exist.");
         if (mapping.ObjectId is not null && mapping.ObjectId != subject.ObjectId)
@@ -135,41 +116,4 @@ public sealed partial class SqlAccountLifecycle(IdentityDbContext db, TimeProvid
         if (login.AuthenticatedAt is null || login.AuthenticatedAt > now.AddSeconds(30) || login.AuthenticatedAt <= now.AddMinutes(-5))
             throw new UnauthorizedAccessException("Sign in again to confirm this account change.");
     }
-
-    private async Task<List<LifecycleDeliveryEntity>> Transition(UserEntity user, string state, CancellationToken token)
-    {
-        user.State = state;
-        user.Version++;
-        user.ChangedAt = clock.GetUtcNow();
-        user.NextAttemptAt = null;
-        user.FailureCode = null;
-        var deliveries = await ReconcileDeliveries(user, token);
-        foreach (var delivery in deliveries)
-        {
-            delivery.Version = user.Version;
-            delivery.Acknowledged = false;
-            Queue(user, delivery);
-        }
-
-        return deliveries;
-    }
-
-    private void Queue(UserEntity user, LifecycleDeliveryEntity delivery)
-    {
-        delivery.Acknowledgment = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-        delivery.ExpiresAt = clock.GetUtcNow().AddHours(1);
-        var intent = new LifecycleIntent(user.UserId, user.Version, user.State, user.ChangedAt!.Value, delivery.ExpiresAt, delivery.Consumer, delivery.Acknowledgment, user.DeletionPausedAt ?? user.ChangedAt.Value);
-        db.Set<OutboxMessage>().Add(new()
-        {
-            Id = Guid.NewGuid(),
-            Type = typeof(LifecycleIntent).AssemblyQualifiedName!,
-            Payload = JsonSerializer.Serialize(intent),
-            OccurredAt = clock.GetUtcNow(),
-            TenantId = "internal",
-            CorrelationId = Guid.NewGuid().ToString("N"),
-            Headers = JsonSerializer.Serialize(new Dictionary<string, string> { [OutboxHeaderNames.Destination] = delivery.Destination }),
-        });
-    }
-
-    private void Audit(UserEntity user, string name) => db.Audit.Add(AuditRecord.FromEntry(new AuditEntry(AuditEntryId.New(), clock.GetUtcNow(), user.UserId, name, AuditCategory.Security, AuditOutcome.Succeeded, new AuditTarget("user", user.UserId), TenantId.Internal)));
 }

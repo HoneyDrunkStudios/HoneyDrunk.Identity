@@ -14,7 +14,7 @@ using System.Text.Json;
 namespace HoneyDrunk.Identity.Accounts;
 
 /// <summary>Creates stable user mappings under a SQL transaction and account-specific lock.</summary>
-public sealed class SqlUserDirectory(IdentityDbContext db, TimeProvider clock, IExternalAccounts external) : IUserDirectory
+public sealed class SqlUserDirectoryDataService(IdentityDbContext db, TimeProvider clock, IExternalAccounts external) : IUserDirectory
 {
     /// <inheritdoc />
     public async Task<UserRecord> Resolve(ExternalSubject verifiedSubject, CancellationToken cancellationToken = default)

@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace HoneyDrunk.Identity.Auditing;
 
 /// <summary>Scopes authentication evidence to erasable accounts; unknown credentials never retain token identifiers.</summary>
-public sealed class IdentityValidationAudit(IDbContextFactory<IdentityDbContext> factory) : IAuditLog
+public sealed class IdentityValidationAuditDataService(IDbContextFactory<IdentityDbContext> factory) : IAuditLog
 {
     /// <inheritdoc />
     public async Task AppendAsync(AuditEntry entry, CancellationToken cancellationToken = default)
@@ -23,7 +23,7 @@ public sealed class IdentityValidationAudit(IDbContextFactory<IdentityDbContext>
         var issuer = entry.Metadata?.GetValueOrDefault("claim.iss");
         if (entry.Outcome == AuditOutcome.Succeeded && !string.IsNullOrEmpty(issuer))
         {
-            var key = SqlUserDirectory.SubjectKey(new ExternalSubject(issuer, entry.Actor));
+            var key = SqlUserDirectoryDataService.SubjectKey(new ExternalSubject(issuer, entry.Actor));
             owner = await db.Subjects.Where(s => s.SubjectKey == key).Select(s => s.UserId).SingleOrDefaultAsync(cancellationToken);
         }
 
