@@ -25,7 +25,7 @@ public sealed partial class SqlAccountLifecycleDataService(IdentityDbContext db,
     /// <returns>The account status.</returns>
     public async Task<AccountStatus> Status(ExternalSubject subject, CancellationToken token = default)
     {
-        await using var tx = await state.Lock(token);
+        await using var tx = await state.LockSubjects(token, subject);
         return View(await Owner(subject, token));
     }
 
@@ -39,7 +39,7 @@ public sealed partial class SqlAccountLifecycleDataService(IdentityDbContext db,
         Fresh(login);
         if (!confirmed)
             throw new ArgumentException("Explicit deletion confirmation is required.");
-        await using var tx = await state.Lock(token);
+        await using var tx = await state.LockSubjects(token, login.Subject);
         var user = await Owner(login.Subject, token);
         if (user.State == "Active")
         {
@@ -68,7 +68,7 @@ public sealed partial class SqlAccountLifecycleDataService(IdentityDbContext db,
         Fresh(login);
         if (!confirmed)
             throw new ArgumentException("Explicit recovery confirmation is required.");
-        await using var tx = await state.Lock(token);
+        await using var tx = await state.LockSubjects(token, login.Subject);
         var user = await Owner(login.Subject, token);
         if (user.State != "Active")
         {
@@ -91,7 +91,7 @@ public sealed partial class SqlAccountLifecycleDataService(IdentityDbContext db,
     /// <returns>The durable receipt write.</returns>
     public async Task Acknowledge(LifecycleAck ack, CancellationToken token = default)
     {
-        await using var tx = await state.Lock(token);
+        await using var tx = await state.LockUser(ack.UserId, token);
         var row = await db.Deliveries.SingleOrDefaultAsync(d => d.UserId == ack.UserId && d.Consumer == ack.Consumer, token);
         if (row is null || row.Version != ack.Version || row.ExpiresAt <= clock.GetUtcNow())
             return;

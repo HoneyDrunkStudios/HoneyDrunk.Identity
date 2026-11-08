@@ -119,6 +119,28 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
         external.Fail = false;
         clock.Now = clock.Now.AddMinutes(2);
         await Process(user.UserId);
+        await using (var db = Context())
+        {
+            Assert.Equal("AwaitingProviderErasureConfirmation", (await db.Users.SingleAsync(u => u.UserId == user.UserId)).FailureCode);
+            Assert.Contains(await db.Subjects.ToListAsync(), s => s.UserId == user.UserId);
+            Assert.Empty(await db.Erasures.ToListAsync());
+        }
+
+        // An immediate retry cannot turn the first observation into a completed erasure.
+        await Process(user.UserId);
+        await using (var db = Context())
+            Assert.True(await db.Users.AnyAsync(u => u.UserId == user.UserId));
+
+        // A later inconsistent provider observation retains identifiers and restarts confirmation.
+        external.Fail = true;
+        clock.Now = clock.Now.AddMinutes(1);
+        await Process(user.UserId);
+        external.Fail = false;
+        clock.Now = clock.Now.AddMinutes(1);
+        await Process(user.UserId);
+        await using (var db = Context())
+            Assert.Empty(await db.Erasures.ToListAsync());
+        clock.Now = clock.Now.AddMinutes(1);
         var verified = clock.Now;
         await Process(user.UserId);
         await using (var db = Context())
@@ -265,6 +287,13 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
         await using (var db = Context())
         {
             await new SqlAccountLifecycleDataService(db, clock, external, Options.Create(current)).Process(user.UserId);
+            Assert.True(await db.Users.AnyAsync(u => u.UserId == user.UserId));
+        }
+
+        clock.Now = clock.Now.AddMinutes(1);
+        await using (var db = Context())
+        {
+            await new SqlAccountLifecycleDataService(db, clock, external, Options.Create(current)).Process(user.UserId);
             Assert.Equal(operation != "erase", await db.Users.AnyAsync(u => u.UserId == user.UserId));
             Assert.True(await db.Users.AnyAsync(u => u.UserId == other.UserId));
         }
@@ -280,6 +309,47 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
         await using var db = Context();
         Assert.Empty(await db.Deliveries.ToListAsync());
         Assert.Empty(await db.Set<OutboxMessage>().ToListAsync());
+    }
+
+    /// <summary>A slow provider blocks its own account, not unrelated status or sign-in operations.</summary>
+    /// <returns>The real SQL concurrency regression.</returns>
+    [Fact]
+    public async Task SlowProviderDoesNotBlockOtherAccounts()
+    {
+        var user = await Seed(alice);
+        var other = await Seed(bob);
+        await using (var db = Context())
+            await Service(db).Request(new(alice, clock.Now), true);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        external.BeforeRevoke = () =>
+        {
+            entered.TrySetResult();
+            return release.Task;
+        };
+        var processing = Process(user.UserId);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await using (var db = Context())
+                Assert.Equal(other.UserId, (await Service(db).Status(bob, timeout.Token)).UserId);
+            await using (var db = Context())
+                Assert.Equal(other.UserId, (await new SqlUserDirectoryDataService(db, clock, external).Resolve(bob, timeout.Token)).UserId);
+            await using (var db = Context())
+            {
+                using var blocked = new CancellationTokenSource(TimeSpan.FromMilliseconds(250));
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Service(db).Cancel(new(alice, clock.Now), true, blocked.Token));
+            }
+        }
+        finally
+        {
+            release.TrySetResult();
+            await processing;
+        }
+
+        await using (var db = Context())
+            Assert.Equal("Active", (await Service(db).Cancel(new(alice, clock.Now), true)).State);
     }
 
     private static async Task<LifecycleIntent> Intent(IdentityDbContext db, string userId) =>
