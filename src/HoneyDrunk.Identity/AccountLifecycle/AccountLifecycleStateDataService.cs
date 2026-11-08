@@ -27,19 +27,24 @@ public sealed class AccountLifecycleStateDataService(IdentityDbContext db, TimeP
         db.Users.Where(u => (u.State != "Active" || db.Deliveries.Any(d => d.UserId == u.UserId && !d.Acknowledged)) && (u.NextAttemptAt == null || u.NextAttemptAt <= now))
             .OrderBy(u => u.NextAttemptAt).Select(u => u.UserId).Take(20).ToArrayAsync(token);
 
-    internal async Task<IDbContextTransaction> Lock(CancellationToken token)
+    internal Task<IDbContextTransaction> LockUser(string userId, CancellationToken token) =>
+        new IdentityTransactionDataService(db).ForUser(userId, token);
+
+    internal Task<IDbContextTransaction> LockSubjects(CancellationToken token, params HoneyDrunk.Identity.Abstractions.Authentication.ExternalSubject[] subjects) =>
+        new IdentityTransactionDataService(db).ForSubjects([.. subjects.Select(Accounts.SqlUserDirectoryDataService.SubjectKey)], token);
+
+    internal Task<IDbContextTransaction> LockMaintenance(CancellationToken token) =>
+        new IdentityTransactionDataService(db).ForMaintenance(token);
+
+    internal bool ConfirmProviderErasure(UserEntity user)
     {
-        var tx = await db.Database.BeginTransactionAsync(token);
-        try
-        {
-            await db.Database.ExecuteSqlRawAsync("DECLARE @r int; EXEC @r=sys.sp_getapplock @Resource='identity:lifecycle',@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=10000; IF @r < 0 THROW 51000, 'Identity transaction busy.', 1;", token);
-            return tx;
-        }
-        catch
-        {
-            await tx.DisposeAsync();
-            throw;
-        }
+        // Immediate provider absence can precede deletion replication. Keep retry
+        // identifiers until a later successful observation; failures reset this phase.
+        if (user.FailureCode == "AwaitingProviderErasureConfirmation")
+            return true;
+        user.FailureCode = "AwaitingProviderErasureConfirmation";
+        user.NextAttemptAt = clock.GetUtcNow().AddMinutes(1);
+        return false;
     }
 
     internal async Task<List<LifecycleDeliveryEntity>> ReconcileDeliveries(UserEntity user, CancellationToken token)

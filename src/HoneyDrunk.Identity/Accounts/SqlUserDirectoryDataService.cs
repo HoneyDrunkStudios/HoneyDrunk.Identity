@@ -25,9 +25,7 @@ public sealed class SqlUserDirectoryDataService(IdentityDbContext db, TimeProvid
         ArgumentException.ThrowIfNullOrWhiteSpace(verifiedSubject.Issuer);
         ArgumentException.ThrowIfNullOrWhiteSpace(verifiedSubject.Subject);
         var key = SubjectKey(verifiedSubject);
-        await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
-        var resource = "identity:lifecycle";
-        await db.Database.ExecuteSqlInterpolatedAsync($"DECLARE @result int; EXEC @result=sys.sp_getapplock @Resource={resource},@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=10000; IF @result < 0 THROW 51000, 'Identity transaction busy.', 1;", cancellationToken);
+        await using var tx = await new AccountLifecycle.IdentityTransactionDataService(db).ForSubjects([key], cancellationToken);
         var mapping = await db.Subjects.SingleOrDefaultAsync(s => s.SubjectKey == key, cancellationToken);
         UserEntity user;
         if (mapping is null)

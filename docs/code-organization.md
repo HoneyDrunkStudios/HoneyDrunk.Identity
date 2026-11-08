@@ -20,3 +20,9 @@ SQL implementation roles use the `DataService` suffix required by Standards 0.4.
 Namespaces follow folders. Pocket Quests source references have been updated with this refactor. This is a source-level change to the unreleased Identity contracts; consumers using an older packaged candidate need a matching updated package before adopting the new namespaces.
 
 The SQL project owns schema deployment and preserves existing table names. Integration tests deploy its DACPAC instead of EF migrations. See [database project](database-project.md) for publishing and data-script conventions.
+
+## Lifecycle concurrency and provider confirmation
+
+`IdentityTransactionDataService` takes the shared lifecycle maintenance gate, then sorted subject locks and sorted account locks. Linking locks both proof subjects before their owners; directory resolution uses the same order. Worker, acknowledgment and restore operations lock their account. Maintenance retains the exclusive gate. Provider calls still serialize changes to the affected account, but no longer hold an exclusive gate over unrelated accounts. The shared gate remains compatible with an older host that takes the legacy exclusive lock.
+
+After all consumers acknowledge erasure, the first successful provider absence observation retains the local account and subject identifiers with `AwaitingProviderErasureConfirmation` and schedules another attempt at least one minute later. Only a second successful observation completes local purge; a provider error restarts the confirmation phase. This state is committed in the existing lifecycle row and survives worker restart. It is a bounded replication safeguard, not proof of production provider convergence, backups, or retention acceptance; those environment gates remain open.

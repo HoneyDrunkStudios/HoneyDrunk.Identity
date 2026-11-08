@@ -8,9 +8,17 @@ internal sealed class TestExternalAccounts : IExternalAccounts
 
     public bool Fail { get; set; }
 
+    public Func<Task>? BeforeRevoke { get; set; }
+
     public Task<bool> Exists(ExternalSubject subject, CancellationToken token) => Task.FromResult(!Erased.Contains(subject.Subject));
 
-    public Task Revoke(ExternalSubject subject, CancellationToken token) => Fail ? Task.FromException(new HttpRequestException("Test provider unavailable.")) : Task.CompletedTask;
+    public async Task Revoke(ExternalSubject subject, CancellationToken token)
+    {
+        if (BeforeRevoke is not null)
+            await BeforeRevoke();
+        if (Fail)
+            throw new HttpRequestException("Test provider unavailable.");
+    }
 
     public Task Erase(ExternalSubject subject, CancellationToken token)
     {

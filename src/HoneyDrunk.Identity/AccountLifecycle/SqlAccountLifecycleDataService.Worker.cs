@@ -14,7 +14,7 @@ public sealed partial class SqlAccountLifecycleDataService
     /// <returns>Completion of one bounded attempt.</returns>
     public async Task Process(string userId, CancellationToken token = default)
     {
-        await using var tx = await state.Lock(token);
+        await using var tx = await state.LockUser(userId, token);
         var user = await db.Users.SingleOrDefaultAsync(u => u.UserId == userId, token);
         if (user is null || user.ChangedAt is null || user.NextAttemptAt > clock.GetUtcNow())
             return;
@@ -30,7 +30,7 @@ public sealed partial class SqlAccountLifecycleDataService
 
             if (user.State == "Erasing" && deliveries.Count > 0 && deliveries.All(d => d.Acknowledged && d.Version == user.Version))
             {
-                await CompleteErasure(userId, subjects, token);
+                await CompleteErasure(user, subjects, token);
             }
             else
             {
@@ -56,7 +56,7 @@ public sealed partial class SqlAccountLifecycleDataService
     {
         if (marker.ErasedAt > clock.GetUtcNow() || marker.ErasedAt <= clock.GetUtcNow().AddDays(-35))
             throw new ArgumentException("Restore requires a current verified erasure marker.");
-        await using var tx = await state.Lock(token);
+        await using var tx = await state.LockUser(marker.UserId, token);
         var subjects = await db.Subjects.Where(s => s.UserId == marker.UserId).ToListAsync(token);
         await Purge(marker.UserId, subjects, token);
         var existing = await db.Erasures.SingleOrDefaultAsync(m => m.UserId == marker.UserId, token);
@@ -73,7 +73,7 @@ public sealed partial class SqlAccountLifecycleDataService
     /// <returns>The bounded retention cleanup.</returns>
     public async Task Prune(CancellationToken token = default)
     {
-        await using var tx = await state.Lock(token);
+        await using var tx = await state.LockMaintenance(token);
         var cutoff = clock.GetUtcNow().AddDays(-35);
         await db.Erasures.Where(m => m.ErasedAt <= cutoff).ExecuteDeleteAsync(token);
         var deliveredBefore = clock.GetUtcNow().AddHours(-1);
@@ -101,12 +101,15 @@ public sealed partial class SqlAccountLifecycleDataService
         user.SessionsRevoked = true;
     }
 
-    private async Task CompleteErasure(string userId, List<SubjectEntity> subjects, CancellationToken token)
+    private async Task CompleteErasure(UserEntity user, List<SubjectEntity> subjects, CancellationToken token)
     {
         foreach (var subject in subjects)
             await external.Erase(new(subject.Issuer, subject.Subject, subject.ObjectId), token);
-        await Purge(userId, subjects, token);
-        db.Erasures.Add(new() { UserId = userId, ErasedAt = clock.GetUtcNow() });
+        if (!state.ConfirmProviderErasure(user))
+            return;
+
+        await Purge(user.UserId, subjects, token);
+        db.Erasures.Add(new() { UserId = user.UserId, ErasedAt = clock.GetUtcNow() });
     }
 
     private async Task Purge(string userId, List<SubjectEntity> subjects, CancellationToken token)

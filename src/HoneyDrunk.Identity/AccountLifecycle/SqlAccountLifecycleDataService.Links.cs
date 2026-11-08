@@ -17,7 +17,7 @@ public sealed partial class SqlAccountLifecycleDataService
     {
         Fresh(current);
         Fresh(additional);
-        await using var tx = await state.Lock(token);
+        await using var tx = await state.LockSubjects(token, current.Subject, additional.Subject);
         var user = await Owner(current.Subject, token);
         if (user.State != "Active")
             throw new UnauthorizedAccessException("Recover the account before changing sign-in methods.");
@@ -47,7 +47,7 @@ public sealed partial class SqlAccountLifecycleDataService
     {
         Fresh(current);
         Fresh(removing);
-        await using var tx = await state.Lock(token);
+        await using var tx = await state.LockSubjects(token, current.Subject, removing.Subject);
         var user = await Owner(current.Subject, token);
         var removedOwner = await Owner(removing.Subject, token);
         if (user.State != "Active" || user.UserId != removedOwner.UserId)
