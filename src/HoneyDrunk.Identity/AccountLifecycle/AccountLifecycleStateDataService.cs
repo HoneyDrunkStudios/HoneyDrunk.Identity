@@ -31,7 +31,7 @@ public sealed class AccountLifecycleStateDataService(IdentityDbContext db, TimeP
         new IdentityTransactionDataService(db).ForUser(userId, token);
 
     internal Task<IDbContextTransaction> LockSubjects(CancellationToken token, params HoneyDrunk.Identity.Abstractions.Authentication.ExternalSubject[] subjects) =>
-        new IdentityTransactionDataService(db).ForSubjects(subjects.Select(Accounts.SqlUserDirectoryDataService.SubjectKey).ToArray(), token);
+        new IdentityTransactionDataService(db).ForSubjects([.. subjects.Select(Accounts.SqlUserDirectoryDataService.SubjectKey)], token);
 
     internal Task<IDbContextTransaction> LockMaintenance(CancellationToken token) =>
         new IdentityTransactionDataService(db).ForMaintenance(token);
