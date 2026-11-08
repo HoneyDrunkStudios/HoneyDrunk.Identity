@@ -328,6 +328,8 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
             return release.Task;
         };
         var processing = Process(user.UserId);
+        await using var recoveryDb = Context();
+        Task<AccountStatus>? recovery = null;
         try
         {
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -336,11 +338,9 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
                 Assert.Equal(other.UserId, (await Service(db).Status(bob, timeout.Token)).UserId);
             await using (var db = Context())
                 Assert.Equal(other.UserId, (await new SqlUserDirectoryDataService(db, clock, external).Resolve(bob, timeout.Token)).UserId);
-            await using (var db = Context())
-            {
-                using var blocked = new CancellationTokenSource(TimeSpan.FromMilliseconds(250));
-                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Service(db).Cancel(new(alice, clock.Now), true, blocked.Token));
-            }
+            recovery = Service(recoveryDb).Cancel(new(alice, clock.Now), true);
+            await Task.Delay(250);
+            Assert.False(recovery.IsCompleted, "Recovery must wait for this account's provider operation.");
         }
         finally
         {
@@ -348,8 +348,8 @@ public sealed class AccountLifecycleTests(SqlServerFixture sql) : IAsyncLifetime
             await processing;
         }
 
-        await using (var db = Context())
-            Assert.Equal("Active", (await Service(db).Cancel(new(alice, clock.Now), true)).State);
+        Assert.NotNull(recovery);
+        Assert.Equal("Active", (await recovery.WaitAsync(TimeSpan.FromSeconds(10))).State);
     }
 
     private static async Task<LifecycleIntent> Intent(IdentityDbContext db, string userId) =>
