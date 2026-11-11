@@ -2,8 +2,11 @@
   <ItemGroup>
     <ProjectReference Include="..\HoneyDrunk.Identity.Abstractions\HoneyDrunk.Identity.Abstractions.csproj" />
   </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <Using Include="System.Net.Http.Json" />
+  </ItemGroup>
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Version>0.1.0-alpha.5</Version>

@@ -1,7 +1,6 @@
 using HoneyDrunk.Identity.Abstractions.Accounts;
 using HoneyDrunk.Identity.Client;
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace HoneyDrunk.Identity.Tests.Accounts;

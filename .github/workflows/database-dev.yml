@@ -37,7 +37,10 @@ jobs:
         run: test "$ENABLED" = 'true' && test -n "$SERVER" && test -n "$RUNNER"
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          # SqlPackage 170.5.96 still targets .NET 10; application builds use global.json.
+          dotnet-version: |
+            10.0.404
+            11.0.100
       - name: Build the Azure SQL DACPAC
         run: |
           dotnet tool restore
@@ -87,7 +90,10 @@ jobs:
           path: schema-review
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          # SqlPackage 170.5.96 still targets .NET 10; application builds use global.json.
+          dotnet-version: |
+            10.0.404
+            11.0.100
       - run: dotnet tool restore
       - uses: azure/login@v2
         with:

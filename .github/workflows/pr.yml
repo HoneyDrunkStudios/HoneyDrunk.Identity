@@ -22,7 +22,7 @@ jobs:
     # Pin current reviewed workflows, including the nested-solution formatter fix.
     uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/pr-core.yml@3c01f017f179fa4792fce834c873a38e2e23a7a3
     with:
-      dotnet-version: '10.0.x'
+      dotnet-version: '11.0.100'
       configuration: 'Release'
       runs-on: 'ubuntu-latest'
       working-directory: '.'
@@ -47,7 +47,10 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          # SqlPackage 170.5.96 still targets .NET 10; application builds use global.json.
+          dotnet-version: |
+            10.0.404
+            11.0.100
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
@@ -91,7 +94,10 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          # SqlPackage 170.5.96 still targets .NET 10; application builds use global.json.
+          dotnet-version: |
+            10.0.404
+            11.0.100
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
@@ -187,7 +193,7 @@ jobs:
     # Retain the merged analyzer's measured script-coverage support.
     uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/job-sonarcloud.yml@c486644f6382401e3a97dadc44f08ca0d6432de1
     with:
-      dotnet-version: '10.0.x'
+      dotnet-version: '11.0.100'
       runs-on: 'ubuntu-latest'
       working-directory: '.'
       project-path: './HoneyDrunk.Identity.slnx'
@@ -341,7 +347,7 @@ jobs:
       checks: write
     uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/coverage-baseline-ratchet.yml@main
     with:
-      dotnet-version: '10.0.x'
+      dotnet-version: '11.0.100'
       configuration: 'Release'
       runs-on: 'ubuntu-latest'
       working-directory: '.'

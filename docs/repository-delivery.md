@@ -2,7 +2,7 @@
 
 ## Scope
 
-The merged Identity foundation includes responsibility-based project organization, account lifecycle contracts, SQL Server database/DACPAC deployment, local Entra credential support and Visual Studio SSDT compatibility. Application projects remain .NET 10. The two public package candidates are Client and Abstractions, version 0.1.0-alpha.4; no package release is established by its merge.
+The merged Identity foundation includes responsibility-based project organization, account lifecycle contracts, SQL Server database/DACPAC deployment, local Entra credential support and Visual Studio SSDT compatibility. Application projects remain .NET 11. The two public package candidates are Client and Abstractions, version 0.1.0-alpha.4; no package release is established by its merge.
 
 ## Explicit review
 

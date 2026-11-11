@@ -22,7 +22,7 @@ jobs:
           ref: main
       - uses: ./.github/actions-repo/.github/actions/dotnet/setup
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.100'
       - name: Restore locked dependencies
         run: dotnet restore HoneyDrunk.Identity.slnx --locked-mode
       - uses: ./.github/actions-repo/.github/actions/dotnet/pack

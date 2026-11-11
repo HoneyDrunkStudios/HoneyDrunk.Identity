@@ -76,7 +76,7 @@ stopped; Basic SQL does not auto-pause. Recheck prices and capacity before apply
 [App Service pricing](https://azure.microsoft.com/en-us/pricing/details/app-service/linux/),
 [SQL pricing](https://azure.microsoft.com/en-us/pricing/details/azure-sql-database/single/).
 
-The same non-root .NET 10 Docker image runs on App Service. Always On, SQL-aware
+The same non-root .NET 11 Docker image runs on App Service. Always On, SQL-aware
 warm-up/Health Check and managed-identity ACR pulls are configured. **B1 has no
 slots**: image and configuration updates can interrupt service. A single instance
 has no health-based failover. Future production sizing, redundancy and deployment
