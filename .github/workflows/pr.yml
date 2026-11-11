@@ -68,10 +68,10 @@ jobs:
           Save-Module Pester -RequiredVersion 5.7.1 -Path $modules -Repository PSGallery -Force
           Import-Module (Join-Path $modules 'Pester/5.7.1/Pester.psd1')
           $config = New-PesterConfiguration
-          $config.Run.Path = 'tests/HoneyDrunk.Identity.Tests/ScriptTests/DatabaseReview.Tests.ps1'
+          $config.Run.Path = @('tests/HoneyDrunk.Identity.Tests/ScriptTests/DatabaseReview.Tests.ps1', 'tests/HoneyDrunk.Identity.Tests/ScriptTests/Packages.Tests.ps1')
           $config.Run.Exit = $true
           $config.CodeCoverage.Enabled = $true
-          $config.CodeCoverage.Path = @('scripts/Review-DevDatabase.ps1', 'scripts/Test-DatabaseReview.ps1')
+          $config.CodeCoverage.Path = @('scripts/Review-DevDatabase.ps1', 'scripts/Test-DatabaseReview.ps1', 'scripts/Test-Packages.ps1')
           $config.CodeCoverage.OutputFormat = 'Cobertura'
           $config.CodeCoverage.OutputPath = 'TestResults/powershell.xml'
           Invoke-Pester -Configuration $config
