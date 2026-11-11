@@ -3,7 +3,6 @@ using HoneyDrunk.Identity.Persistence.Context;
 using HoneyDrunk.Identity.Tests.Fixtures;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
-using System.Net.Http.Json;
 
 namespace HoneyDrunk.Identity.Tests.AccountLifecycle;
 

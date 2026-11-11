@@ -42,5 +42,5 @@ internal sealed class IdentityTransactionDataService(IdentityDbContext db)
     }
 
     private Task<int> Acquire(string resource, string mode, CancellationToken token) =>
-        db.Database.ExecuteSqlInterpolatedAsync($"DECLARE @r int; EXEC @r=sys.sp_getapplock @Resource={resource},@LockMode={mode},@LockOwner='Transaction',@LockTimeout=10000; IF @r < 0 THROW 51000, 'Identity transaction busy.', 1;", token);
+        db.Database.ExecuteSqlAsync($"DECLARE @r int; EXEC @r=sys.sp_getapplock @Resource={resource},@LockMode={mode},@LockOwner='Transaction',@LockTimeout=10000; IF @r < 0 THROW 51000, 'Identity transaction busy.', 1;", token);
 }

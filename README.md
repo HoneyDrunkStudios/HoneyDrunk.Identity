@@ -20,7 +20,7 @@ Kernel supplies trusted request context; Auth validates credentials; Data and Au
 
 ## Local development
 
-Requires .NET SDK 10.0.401 and SQL Server LocalDB. Visual Studio's SQL project uses SSDT and its .NET Framework 4.8 build tooling; application projects target .NET 10. CLI/CI builds use Microsoft.Build.Sql. See [database deployment](docs/database-project.md).
+Requires .NET SDK 11.0.100 and SQL Server LocalDB. Visual Studio's SQL project uses SSDT and its .NET Framework 4.8 build tooling; application projects target .NET 11. Client and Abstractions also retain a .NET 10 target for existing package consumers. CLI/CI builds use Microsoft.Build.Sql. See [database deployment](docs/database-project.md).
 
 From the repository root:
 

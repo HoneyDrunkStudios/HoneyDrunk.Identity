@@ -32,7 +32,8 @@ var node = builder.Services.AddHoneyDrunkNode(options =>
 if (builder.Configuration["Entra:Graph:CredentialMode"] == "Certificate")
     node.AddVaultWithAzureKeyVaultBootstrap();
 builder.Services.AddDbContextFactory<IdentityDbContext>(options => options.UseSqlServer(
-    builder.Configuration.GetConnectionString("identity") ?? throw new InvalidOperationException("Identity SQL connection is required.")));
+    builder.Configuration.GetConnectionString("identity") ?? throw new InvalidOperationException("Identity SQL connection is required."),
+    sql => sql.UseCompatibilityLevel(150)));
 builder.Services.AddScoped<IUserDirectory, SqlUserDirectoryDataService>();
 builder.Services.AddScoped<IUnitOfWork<IAuditDataContext>, IdentityAuditUnitOfWork>();
 builder.Services.AddHoneyDrunkAuditData();

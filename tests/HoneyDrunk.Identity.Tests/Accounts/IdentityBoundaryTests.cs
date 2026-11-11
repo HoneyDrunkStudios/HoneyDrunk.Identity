@@ -6,7 +6,6 @@ using HoneyDrunk.Identity.Tests.Fixtures;
 using HoneyDrunk.Kernel.Abstractions.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace HoneyDrunk.Identity.Tests.Accounts;

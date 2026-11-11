@@ -8,6 +8,14 @@
         "resolved": "0.4.4",
         "contentHash": "oE1wWAd5LNEnEulsJNvyIYEimQUhs9Q40IqE04I5qJ4ij36f05OflFk9Y9trKJohevZyWvlRHGISZvOhU6lvHA=="
       }
+    },
+    "net11.0": {
+      "HoneyDrunk.Standards": {
+        "type": "Direct",
+        "requested": "[0.4.4, )",
+        "resolved": "0.4.4",
+        "contentHash": "oE1wWAd5LNEnEulsJNvyIYEimQUhs9Q40IqE04I5qJ4ij36f05OflFk9Y9trKJohevZyWvlRHGISZvOhU6lvHA=="
+      }
     }
   }
 }

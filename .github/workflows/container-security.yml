@@ -25,7 +25,7 @@ jobs:
       - name: Verify non-root runtime and patched APT packages
         run: |
           test "$(docker run --rm --entrypoint id dependency-security:runtime -u)" -ne 0
-          docker run --rm --entrypoint dpkg-query dependency-security:runtime -W -f='${Package} ${Version}\n' apt libapt-pkg6.0t64
+          docker run --rm --entrypoint dpkg-query dependency-security:runtime -W -f='${Package} ${Version}\n' apt libapt-pkg7.0
       - name: Scan final image without registry push
         run: |
           docker save dependency-security:runtime --output image.tar
