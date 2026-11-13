@@ -14,13 +14,14 @@ jobs:
     name: PR Core
     if: github.event_name == 'pull_request'
     permissions:
+      actions: read
       contents: read
       checks: write
       issues: write
       pull-requests: write
       security-events: write  # CodeQL SARIF upload
     # Pin current reviewed workflows, including the nested-solution formatter fix.
-    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/pr-core.yml@3c01f017f179fa4792fce834c873a38e2e23a7a3
+    uses: HoneyDrunkStudios/HoneyDrunk.Actions/.github/workflows/pr-core.yml@0bd3468b475120a1db892115b6caf548244ab981
     with:
       dotnet-version: '11.0.100'
       configuration: 'Release'
@@ -33,7 +34,7 @@ jobs:
       patch-coverage-threshold: 75
       absolute-coverage-floor: 70
       post-pr-summary: true
-      actions-ref: '3c01f017f179fa4792fce834c873a38e2e23a7a3'
+      actions-ref: '0bd3468b475120a1db892115b6caf548244ab981'
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
 
