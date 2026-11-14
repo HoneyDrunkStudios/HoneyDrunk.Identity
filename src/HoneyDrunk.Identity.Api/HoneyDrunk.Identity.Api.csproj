@@ -19,7 +19,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HoneyDrunk.Data.Outbox.Dispatcher" Version="0.7.2" />
-    <PackageReference Include="HoneyDrunk.Transport.AzureServiceBus" Version="0.7.3" />
+    <PackageReference Include="HoneyDrunk.Data.Outbox.Dispatcher" Version="0.8.0" />
+    <PackageReference Include="HoneyDrunk.Transport.AzureServiceBus" Version="0.8.0" />
   </ItemGroup>
 </Project>

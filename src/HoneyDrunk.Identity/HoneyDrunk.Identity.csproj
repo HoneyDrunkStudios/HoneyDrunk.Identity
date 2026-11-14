@@ -5,13 +5,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="HoneyDrunk.Audit.Abstractions" Version="0.2.2" />
-    <PackageReference Include="HoneyDrunk.Audit.Data" Version="0.2.2" />
-    <PackageReference Include="HoneyDrunk.Data.EntityFramework" Version="0.7.2" />
-    <PackageReference Include="HoneyDrunk.Data.Outbox" Version="0.7.2" />
+    <PackageReference Include="HoneyDrunk.Audit.Abstractions" Version="0.3.0" />
+    <PackageReference Include="HoneyDrunk.Audit.Data" Version="0.3.0" />
+    <PackageReference Include="HoneyDrunk.Data.EntityFramework" Version="0.8.0" />
+    <PackageReference Include="HoneyDrunk.Data.Outbox" Version="0.8.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="11.0.0" />
     <!-- SqlClient 7 separates Entra authentication from the core driver. -->
-    <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.1.1" />
+    <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.1.2" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="11.0.0" />
     <PackageReference Include="Ulid" Version="1.4.1" />
   </ItemGroup>
